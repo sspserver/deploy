@@ -1,0 +1,61 @@
+name: Build docker image
+
+on:
+  push:
+    tags: [ v* ]
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+env:
+  GO_VERSION: "1.23"
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  DEPLOY_COMMIT_NUMBER: ${{ github.sha }}
+  DEPLOY_TAG_VALUE: ${{ github.ref_name }}
+  SYSTEM_LIST: centos debian ubuntu
+  BUILD_DIR: .build
+
+jobs:
+  build:
+    # Temporarily disabled until switch process in production
+    # if: startsWith(github.event.workflow_run.head_branch, 'v')
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      # This is used to complete the identity challenge
+      # with sigstore/fulcio when running outside of PRs.
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get Tag or Commit SHA
+        id: get_tag
+        run: |
+          # Attempt to get the tag name for the current commit
+          TAG=$(git describe --tags --exact-match 2>/dev/null || echo $GITHUB_SHA)
+          echo "DEPLOY_TAG_VALUE=${TAG}" >> $GITHUB_ENV
+
+      - name: Pack standalone scripts into archives
+        run: |
+          for system in $SYSTEM_LIST; do
+            echo "Packing standalone scripts for $system"
+            mkdir -p ${{ env.BUILD_DIR }}/standalone/$system
+            cp -r standalone/nginx ${{ env.BUILD_DIR }}/standalone/$system
+            cp -r standalone/clickhouse ${{ env.BUILD_DIR }}/standalone/$system
+            cp -r standalone/systems/$system.sh ${{ env.BUILD_DIR }}/standalone/$system/install.sh
+            cp    standalone/docker-compose.yml ${{ env.BUILD_DIR }}/standalone/$system
+            zip -r ${{ env.BUILD_DIR }}/standalone/$system.zip ${{ env.BUILD_DIR }}/standalone/$system
+            rm -rf ${{ env.BUILD_DIR }}/standalone/$system
+          done
+
+      - name: Deploy install 🚀
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: build
+          folder: ${{ env.BUILD_DIR }}

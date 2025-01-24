@@ -1,0 +1,2 @@
+listen ${NGINX_SSP_HOST}:${NGINX_SSP_PORT};
+server_name ${NGINX_SSP_PUBLIC_HOST};

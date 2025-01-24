@@ -1,0 +1,2 @@
+listen ${NGINX_API_HOST}:${NGINX_API_PORT};
+server_name ${NGINX_API_PUBLIC_HOST};

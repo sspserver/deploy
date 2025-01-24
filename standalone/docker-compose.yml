@@ -1,11 +1,70 @@
+volumes:
+  clickhouse_data:
+    driver: local
+  postgres_data:
+    driver: local
+
 services:
+  postgres:
+    image: postgres:17.2
+    container_name: ssp-postgres
+    restart: always
+    env_file: .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: ssp-clickhouse
+    restart: always
+    env_file: .env
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+
+  web:
+    image: nginx:1.27
+    container_name: ssp-webserver
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - ssp
+      - api
+    volumes:
+      - ./nginx:/etc/nginx/templates
+    env_file: .env
+    environment:
+      - NGINX_SSP_HOST=ssp
+      - NGINX_SSP_PORT=8080
+      - NGINX_API_HOST=api
+      - NGINX_API_PORT=8080
+
   ##############################################################################
   # SSP Server services
+  ##############################################################################
   ssp:
-    image: sspserver/sspserver:latest
+    image: ghcr.io/sspserver/sspserver:latest
+    container_name: ssp-server
+    restart: always
+    env_file: .env
     ports:
       - "8080:8080"
+    depends_on:
+      - postgres
+      - clickhouse
+
   api:
-    image: sspserver/api:latest
+    image: ghcr.io/sspserver/api:latest
+    container_name: ssp-api
+    restart: always
+    env_file: .env
     ports:
-      - "8081:8081"
+      - "8081:8080"
+    depends_on:
+      - postgres
+      - clickhouse
