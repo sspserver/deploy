@@ -110,7 +110,7 @@ install_docker() {
     echo -e "${OK}: Installation complete!"
 }
 
-is_systemd_enabled() {
+is_systemd_enabled () {
     if [[ "$(ps -p 1 -o comm=)" == "systemd" ]]; then
         echo -e "${INFO}: systemd is enabled as the init system."
         return 0

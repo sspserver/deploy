@@ -8,6 +8,9 @@ ERROR="${RED}ERROR${NC}"
 
 LOG_DIR="/var/log/sspserver"
 LOG_FILE="${LOG_DIR}/sspserver_1click_standalone.log"
+INSTALL_DIR="/opt/sspserver"
+
+DOWNLOAD_SCRIPTS_STANDALONE_URI="https://github.com/sspserver/deploy/raw/refs/heads/build/standalone/{{os-name}}.zip"
 
 mkdir -p "${LOG_DIR}"
 
@@ -19,7 +22,7 @@ log () {
     fi
 }
 
-# Install the standalone version of the app
+# Helper functions
 
 print_info () {
     OS_NAME=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -127,9 +130,36 @@ check_storage () {
     fi
 }
 
+# Install the standalone version of the app
+
+prepare_general_environment () {
+    ## Replace domains in .init.env
+    read -p "Enter the domain for the SSP API server [apidemo.sspserver.org]: " SSPSERVER_API_DOMAIN
+    SSPSERVER_API_DOMAIN=${SSPSERVER_API_DOMAIN:-apidemo.sspserver.org}
+    sed -i "s/apidemo.sspserver.org/${SSPSERVER_API_DOMAIN}/g" ${INSTALL_DIR}/.init.env
+
+    read -p "Enter the domain for the SSP UI server [demo.sspserver.org]: " SSPSERVER_UI_DOMAIN
+    SSPSERVER_UI_DOMAIN=${SSPSERVER_UI_DOMAIN:-demo.sspserver.org}
+    sed -i "s/demo.sspserver.org/${SSPSERVER_UI_DOMAIN}/g" ${INSTALL_DIR}/.init.env
+
+    read -p "Enter the domain for the SSP server [sspdemo.sspserver.org]: " SSPSERVER_DOMAIN
+    SSPSERVER_DOMAIN=${SSPSERVER_DOMAIN:-sspdemo.sspserver.org}
+    sed -i "s/sspdemo.sspserver.org/${SSPSERVER_DOMAIN}/g" ${INSTALL_DIR}/.init.env
+}
+
 run_install_script () {
     os_name=$(get_os_name)
-    ./systems/${os_name}.sh
+
+    log "Download install scripts ${os_name}..." "+"
+    curl -sL "${DOWNLOAD_SCRIPTS_STANDALONE_URI}" -o /tmp/sspserver-install.zip
+    unzip -o /tmp/sspserver-install.zip -d ${INSTALL_DIR}
+    chmod +x ${INSTALL_DIR}/install.sh
+
+    log "Prepare general environment..." "+"
+    prepare_general_environment
+
+    log "Run install script for ${os_name}..." "+"
+    ${INSTALL_DIR}/install.sh
 }
 
 # 1. Print OS information

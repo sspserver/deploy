@@ -1,0 +1,17 @@
+[Unit]
+Description=SSP server
+After=docker.service
+Requires=docker.service
+
+[Service]
+WorkingDirectory=/opt/sspserver/
+Type=simple
+Restart=always
+RestartSec=5
+RemainAfterExit=yes
+EnvironmentFile=/opt/sspserver/.init.env
+ExecStart=docker compose -f /opt/sspserver/docker-compose.yml up proxy --detach
+ExecStop=docker compose -f /opt/sspserver/docker-compose.yml stop
+
+[Install]
+WantedBy=multi-user.target
