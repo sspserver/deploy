@@ -194,15 +194,15 @@ prepare_general_environment () {
     log "${BLUE}Preparing general environment...${NC}" "+"
 
     ## Replace domains in .init.env
-    read -p "Enter the domain for the SSP API server [apidemo.sspserver.org]: " SSPSERVER_API_DOMAIN
+    read -p "Enter the domain for the SSP API server [apidemo.sspserver.org]: " SSPSERVER_API_DOMAIN < /dev/tty
     SSPSERVER_API_DOMAIN=${SSPSERVER_API_DOMAIN:-apidemo.sspserver.org}
     sed -i "s/apidemo.sspserver.org/${SSPSERVER_API_DOMAIN}/g" ${INSTALL_DIR}/.init.env
 
-    read -p "Enter the domain for the SSP UI server [demo.sspserver.org]: " SSPSERVER_UI_DOMAIN
+    read -p "Enter the domain for the SSP UI server [demo.sspserver.org]: " SSPSERVER_UI_DOMAIN < /dev/tty
     SSPSERVER_UI_DOMAIN=${SSPSERVER_UI_DOMAIN:-demo.sspserver.org}
     sed -i "s/demo.sspserver.org/${SSPSERVER_UI_DOMAIN}/g" ${INSTALL_DIR}/.init.env
 
-    read -p "Enter the domain for the SSP server [sspdemo.sspserver.org]: " SSPSERVER_DOMAIN
+    read -p "Enter the domain for the SSP server [sspdemo.sspserver.org]: " SSPSERVER_DOMAIN < /dev/tty
     SSPSERVER_DOMAIN=${SSPSERVER_DOMAIN:-sspdemo.sspserver.org}
     sed -i "s/sspdemo.sspserver.org/${SSPSERVER_DOMAIN}/g" ${INSTALL_DIR}/.init.env
 }
