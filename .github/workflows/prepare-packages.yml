@@ -44,7 +44,8 @@ jobs:
         run: |
           for system in $SYSTEM_LIST; do
             echo "Packing standalone scripts for $system"
-            build_dir="${{ env.BUILD_DIR }}/standalone/$system"
+            cur_dir=$(pwd)
+            build_dir="${cur_dir}/${{ env.BUILD_DIR }}/standalone/$system"
 
             echo "Create build directory: $build_dir"
             mkdir -p ${build_dir}
@@ -69,7 +70,7 @@ jobs:
             cp    standalone/.init.env "${build_dir}/"
 
             echo "Pack the standalone directory into a zip file"
-            (cd "${build_dir}" && zip -r "${build_dir}.zip" .)
+            (cd "${build_dir}/" && zip -r "${build_dir}.zip" .)
 
             echo "Clean build directory"
             rm -rf "${build_dir}"
