@@ -138,7 +138,7 @@ run_install_script () {
     URL=`echo "${RUN_INSTALLER_SCRIPT_URI}" | sed "s/{{os-name}}/${os_name}/g"`
     curl -sSL "${URL}" -o /tmp/install_script.sh
     chmod +x /tmp/install_script.sh
-    bash -i /tmp/install_script.sh
+    bash /tmp/install_script.sh
 }
 
 # 1. Print OS information
