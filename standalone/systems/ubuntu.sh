@@ -38,23 +38,32 @@ log () {
 # * systemd
 
 install_dependencies () {
+    log "${BLUE}Installing dependencies...${NC}" "+"
+
+    # Check if apt-get is available
+    if ! command -v apt-get &> /dev/null; then
+        log "${RED}apt-get not found, please install it first.${NC}" "+"
+        exit 1
+    fi
+
+    # Update package list and install dependencies
+    log "Updating package list..." "+"
+    apt-get -y update >> "${LOG_FILE}" 2>&1
+
     log "Installing dependencies..." "+"
-    {
-        apt-get -y update
-        apt-get -y install \
-            curl \
-            unzip \
-            jq \
-            git \
-            build-essential \
-            ca-certificates \
-            gnupg \
-            lsb-release
-    } >> "${LOG_FILE}" 2>&1
+    apt-get -y install \
+        curl \
+        unzip \
+        jq \
+        git \
+        build-essential \
+        ca-certificates \
+        gnupg \
+        lsb-release >> "${LOG_FILE}" 2>&1
 }
 
 install_systemd_dependency () {
-    log "Installing systemd dependency..." "+"
+    log "${BLUE}Installing systemd dependency...${NC}" "+"
     {
         apt-get -y install systemd
     } >> "${LOG_FILE}" 2>&1
@@ -93,7 +102,7 @@ install_systemd_dependency () {
 }
 
 install_docker () {
-    log "Installing docker..." "+"
+    log "${BLUE}Installing docker...${NC}" "+"
     if ! [[ -f /etc/apt/keyrings/docker.gpg ]]; then
         {
             mkdir -p /etc/apt/keyrings
@@ -163,8 +172,9 @@ pass_generator () {
 }
 
 download_service_files () {
-    log "Downloading service files..." "+"
-    curl -L "${DOWNLOAD_STANDALONE_URI}" | sed "s/{{os-name}}/${OS_NAME}/g" > "${INSTALL_DIR}/sspserver.zip"
+    log "${BLUE}Downloading service files...${NC}" "+"
+    DOWNLOAD_URL="${DOWNLOAD_STANDALONE_URI}" | sed "s/{{os-name}}/${OS_NAME}/g"
+    curl -L "${DOWNLOAD_URL}" > "${INSTALL_DIR}/sspserver.zip"
     if [[ $? -ne 0 ]]; then
         log "Failed to download service files" "+"
         exit 1
@@ -182,6 +192,8 @@ download_service_files () {
 }
 
 prepare_general_environment () {
+    log "${BLUE}Preparing general environment...${NC}" "+"
+
     ## Replace domains in .init.env
     read -p "Enter the domain for the SSP API server [apidemo.sspserver.org]: " SSPSERVER_API_DOMAIN
     SSPSERVER_API_DOMAIN=${SSPSERVER_API_DOMAIN:-apidemo.sspserver.org}
@@ -197,7 +209,7 @@ prepare_general_environment () {
 }
 
 prepare_sspservice () {
-    log "Preparing SSP service..." "+"
+    log "${BLUE}Preparing SSP service...${NC}" "+"
     cp ${INSTALL_DIR}/sspserver/sspserver.service ${SYSTEMD_SERVICE_DIR}/sspserver.service
 
     chmod 644 ${SYSTEMD_SERVICE_DIR}/sspserver.service
@@ -218,7 +230,6 @@ prepare_sspservice () {
 ###############################################################################
 
 # 1. Install dependencies
-log "${BLUE}Installing dependencies...${NC}" "+"
 install_dependencies
 
 # 2. Install systemd dependency if not installed
@@ -242,13 +253,10 @@ else
 fi
 
 # 4. Download and prepare service files
-log "${BLUE}Downloading and preparing service files...${NC}" "+"
 download_service_files
 
 # 5. Prepare project environment
-log "${BLUE}Preparing project environment...${NC}" "+"
 prepare_general_environment
 
 # 6. Pull SSP Server service
-log "${BLUE}Pulling SSP Server service...${NC}" "+"
 prepare_sspservice
