@@ -12,6 +12,7 @@ services:
     image: postgres:17.2
     container_name: ssp-postgres
     restart: always
+    pull_policy: always
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -27,6 +28,7 @@ services:
     <<: *clickhouse-image
     container_name: ssp-clickhouse
     restart: always
+    pull_policy: always
     healthcheck:
       test: ["CMD", "bash", "-c", "clickhouse-client --query \"SELECT value FROM system.settings WHERE name = 'readonly'\" | grep -q '0'"]
       interval: 10s
@@ -47,6 +49,7 @@ services:
   clickhouse-init:
     <<: *clickhouse-image
     container_name: ssp-clickhouse-init
+    pull_policy: always
     entrypoint: [ './migrations.sh' ]
     depends_on:
       clickhouse-server:
@@ -70,6 +73,7 @@ services:
     image: ghcr.io/sspserver/sspserver:latest
     container_name: ssp-server
     restart: always
+    pull_policy: always
     env_file:
       - ./.init.env
       - postgres/.env
@@ -84,6 +88,7 @@ services:
     image: ghcr.io/sspserver/api:latest
     container_name: ssp-api
     restart: always
+    pull_policy: always
     command: ["--run-migrations"]
     env_file:
       - ./.init.env
@@ -105,6 +110,7 @@ services:
     image: ghcr.io/sspserver/control:latest
     container_name: ssp-control
     restart: always
+    pull_policy: always
     env_file:
       - ./.init.env
       - control/.env
@@ -124,6 +130,7 @@ services:
     image: nginx:1.27
     container_name: ssp-webserver
     restart: always
+    pull_policy: always
     ports:
       - "80:80"
       - "443:443"
