@@ -74,6 +74,7 @@ services:
     container_name: ssp-server
     restart: always
     pull_policy: always
+    command: ["sspserver"]
     env_file:
       - ./.init.env
       - postgres/.env
