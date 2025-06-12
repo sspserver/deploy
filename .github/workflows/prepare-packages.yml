@@ -45,32 +45,34 @@ jobs:
           for system in $SYSTEM_LIST; do
             echo "Packing standalone scripts for $system"
             build_dir="${{ env.BUILD_DIR }}/standalone/$system"
-            mkdir -p $build_dir
+
+            echo "Create build directory: $build_dir"
+            mkdir -p ${build_dir}
 
             echo "Copy databases configs"
-            cp -r standalone/postgres   $build_dir/
-            cp -r standalone/clickhouse $build_dir/
+            cp -r standalone/postgres   "${build_dir}/"
+            cp -r standalone/clickhouse "${build_dir}/"
 
             echo "Copy services configs"
-            cp -r standalone/sspserver  $build_dir/
-            cp -r standalone/api        $build_dir/
-            cp -r standalone/control    $build_dir/
+            cp -r standalone/sspserver  "${build_dir}/"
+            cp -r standalone/api        "${build_dir}/"
+            cp -r standalone/control    "${build_dir}/"
 
             echo "Copy webserver configs"
-            cp -r standalone/nginx $build_dir/
+            cp -r standalone/nginx "${build_dir}/"
 
             echo "Copy system specific files for installation"
             cp -r standalone/systems/$system.sh ${{ env.BUILD_DIR }}/standalone/install-$system.sh
 
             echo "Copy docker-compose and init env files"
-            cp    standalone/docker-compose.yml $build_dir/
-            cp    standalone/.init.env $build_dir/
+            cp    standalone/docker-compose.yml "${build_dir}/"
+            cp    standalone/.init.env "${build_dir}/"
 
             echo "Pack the standalone directory into a zip file"
-            (cd $build_dir && zip -r $build_dir.zip .)
+            (cd "${build_dir}" && zip -r "${build_dir}.zip" .)
 
             echo "Clean build directory"
-            rm -rf $build_dir
+            rm -rf "${build_dir}"
           done
 
       - name: Deploy install 🚀
