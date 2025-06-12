@@ -59,7 +59,7 @@ jobs:
             cp -r standalone/nginx ${{ env.BUILD_DIR }}/standalone/$system/
 
             echo "Copy system specific files for installation"
-            cp -r standalone/systems/$system.sh ${{ env.BUILD_DIR }}/standalone/$system/install.sh
+            cp -r standalone/systems/$system.sh ${{ env.BUILD_DIR }}/standalone/install-$system.sh
 
             echo "Copy docker-compose and init env files"
             cp    standalone/docker-compose.yml ${{ env.BUILD_DIR }}/standalone/$system/

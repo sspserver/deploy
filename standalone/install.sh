@@ -2,6 +2,7 @@
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 OK="${GREEN}OK${NC}"
 ERROR="${RED}ERROR${NC}"
@@ -10,7 +11,7 @@ LOG_DIR="/var/log/sspserver"
 LOG_FILE="${LOG_DIR}/sspserver_1click_standalone.log"
 INSTALL_DIR="/opt/sspserver"
 
-DOWNLOAD_SCRIPTS_STANDALONE_URI="https://github.com/sspserver/deploy/raw/refs/heads/build/standalone/{{os-name}}.zip"
+RUN_INSTALLER_SCRIPT_URI="https://raw.githubusercontent.com/sspserver/deploy/refs/heads/build/standalone/install-{{os-name}}.sh"
 
 mkdir -p "${LOG_DIR}"
 
@@ -18,7 +19,7 @@ log () {
     echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" >> "${LOG_FILE}"
     echo "$(date '+%d-%m-%Y %H:%M:%S') $1" >> "${LOG_FILE}"
     if [ "$2" == "+" ]; then
-        echo -e "$1"
+        echo -e "$(date '+%d-%m-%Y %H:%M:%S') $1"
     fi
 }
 
@@ -82,7 +83,7 @@ get_os_name () {
 
 check_os () {
     os_name=$(get_os_name) # $(uname -s | tr '[:upper:]' '[:lower:]')
-    supported_os=("centos" "debian" "ubuntu", "darwin")
+    supported_os=("centos" "debian" "ubuntu" "darwin")
     if [[ " ${supported_os[@]} " =~ " ${os_name} " ]]; then
         log "Check OS [${os_name}] - ${OK}" "+"
     else echo -e "${ERROR}: Unsupported OS ${os_name}. Exiting..."
@@ -132,55 +133,36 @@ check_storage () {
 
 # Install the standalone version of the app
 
-prepare_general_environment () {
-    ## Replace domains in .init.env
-    read -p "Enter the domain for the SSP API server [apidemo.sspserver.org]: " SSPSERVER_API_DOMAIN
-    SSPSERVER_API_DOMAIN=${SSPSERVER_API_DOMAIN:-apidemo.sspserver.org}
-    sed -i "s/apidemo.sspserver.org/${SSPSERVER_API_DOMAIN}/g" ${INSTALL_DIR}/.init.env
-
-    read -p "Enter the domain for the SSP UI server [demo.sspserver.org]: " SSPSERVER_UI_DOMAIN
-    SSPSERVER_UI_DOMAIN=${SSPSERVER_UI_DOMAIN:-demo.sspserver.org}
-    sed -i "s/demo.sspserver.org/${SSPSERVER_UI_DOMAIN}/g" ${INSTALL_DIR}/.init.env
-
-    read -p "Enter the domain for the SSP server [sspdemo.sspserver.org]: " SSPSERVER_DOMAIN
-    SSPSERVER_DOMAIN=${SSPSERVER_DOMAIN:-sspdemo.sspserver.org}
-    sed -i "s/sspdemo.sspserver.org/${SSPSERVER_DOMAIN}/g" ${INSTALL_DIR}/.init.env
-}
-
 run_install_script () {
     os_name=$(get_os_name)
-
-    log "Download install scripts ${os_name}..." "+"
-    curl -sL "${DOWNLOAD_SCRIPTS_STANDALONE_URI}" -o /tmp/sspserver-install.zip
-    unzip -o /tmp/sspserver-install.zip -d ${INSTALL_DIR}
-    chmod +x ${INSTALL_DIR}/install.sh
-
-    log "Prepare general environment..." "+"
-    prepare_general_environment
-
-    log "Run install script for ${os_name}..." "+"
-    ${INSTALL_DIR}/install.sh
+    curl -sL "${RUN_INSTALLER_SCRIPT_URI}" | sed "s/{{os-name}}/${os_name}/g" | bash
 }
 
 # 1. Print OS information
-# print_info
+echo -e "${BLUE}System Information:>${NC}"
+print_info
 
 # 2. Check OS
+echo -e "${BLUE}Checking OS...${NC}"
 check_os
 
 # 3. Check architecture
+echo -e "${BLUE}Checking architecture...${NC}"
 check_architecture
 
 # 4. Check CPU
+echo -e "${BLUE}Checking CPU...${NC}"
 check_cpu
 
 # 5. Check RAM
+echo -e "${BLUE}Checking RAM...${NC}"
 check_ram
 
 # 6. Check storage
+echo -e "${BLUE}Checking storage...${NC}"
 check_storage
 
-echo -e "All checks passed. Proceeding with the installation..."
+echo -e "${GREEN}All checks passed. Proceeding with the installation...${NC}"
 echo "==============================================="
 
 # 7. Run the install script

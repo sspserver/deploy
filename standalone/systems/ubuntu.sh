@@ -2,6 +2,7 @@
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 OK="${GREEN}OK${NC}"
 ERROR="${RED}ERROR${NC}"
@@ -9,7 +10,87 @@ ERROR="${RED}ERROR${NC}"
 LOG_DIR="/var/log/sspserver"
 LOG_FILE="${LOG_DIR}/sspserver_1click_standalone.log"
 
-PROJECT_DIR="/opt/sspserver"
+INSTALL_DIR="/opt/sspserver"
+SYSTEMD_SERVICE_DIR="/etc/systemd/system"
+OS_NAME="ubuntu"
+
+DOWNLOAD_STANDALONE_URI="https://github.com/sspserver/deploy/raw/refs/heads/build/standalone/{{os-name}}.zip"
+
+mkdir -p "${LOG_DIR}"
+
+log () {
+    echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" >> "${LOG_FILE}"
+    echo "$(date '+%d-%m-%Y %H:%M:%S') $1" >> "${LOG_FILE}"
+    if [ "$2" == "+" ]; then
+        echo -e "$(date '+%d-%m-%Y %H:%M:%S') $1"
+    fi
+}
+
+## Project dependencies
+# * curl
+# * unzip
+# * jq
+# * git
+# * build-essential
+# * ca-certificates
+# * gnupg
+# * lsb-release
+# * systemd
+
+install_dependencies () {
+    log "Installing dependencies..." "+"
+    {
+        apt-get -y update
+        apt-get -y install \
+            curl \
+            unzip \
+            jq \
+            git \
+            build-essential \
+            ca-certificates \
+            gnupg \
+            lsb-release
+    } >> "${LOG_FILE}" 2>&1
+}
+
+install_systemd_dependency () {
+    log "Installing systemd dependency..." "+"
+    {
+        apt-get -y install systemd
+    } >> "${LOG_FILE}" 2>&1
+    if [[ $? -ne 0 ]]; then
+        log "Failed to install systemd dependency" "-"
+        exit 1
+    else
+        log "Systemd dependency installed successfully" "+"
+    fi
+    # Check if systemd is running
+    if ! systemctl is-active --quiet systemd; then
+        log "Systemd is not running, starting it..." "+"
+        systemctl start systemd
+        if [[ $? -ne 0 ]]; then
+            log "Failed to start systemd" "-"
+            exit 1
+        else
+            log "Systemd started successfully" "+"
+        fi
+    else
+        log "Systemd is already running" "+"
+    fi
+    # Check if systemd is enabled to start on boot
+    if ! systemctl is-enabled --quiet systemd; then
+        log "Enabling systemd to start on boot..." "+"
+        systemctl enable systemd
+        if [[ $? -ne 0 ]]; then
+            log "Failed to enable systemd" "-"
+            exit 1
+        else
+            log "Systemd enabled successfully" "+"
+        fi
+    else
+        log "Systemd is already enabled to start on boot" "+"
+    fi
+}
 
 install_docker () {
     log "Installing docker..." "+"
@@ -81,19 +162,93 @@ pass_generator () {
     echo "${password}"
 }
 
-download_project () {
-  if [ -d ${PROJECT_DIR} ]; then
-    log "SSP Server project already exists" "+"
-    return
-  fi
+download_service_files () {
+    log "Downloading service files..." "+"
+    curl -L "${DOWNLOAD_STANDALONE_URI}" | sed "s/{{os-name}}/${OS_NAME}/g" > "${INSTALL_DIR}/sspserver.zip"
+    if [[ $? -ne 0 ]]; then
+        log "Failed to download service files" "+"
+        exit 1
+    fi
 
-  mkdir -p ${PROJECT_DIR}
-  cd ${PROJECT_DIR}
+    log "Unzipping service files..." "+"
+    unzip -o "${INSTALL_DIR}/sspserver.zip" -d "${INSTALL_DIR}" >> "${LOG_FILE}" 2>&1
+    if [[ $? -ne 0 ]]; then
+        log "Failed to unzip service files" "+"
+        exit 1
+    fi
 
-  log "Downloading SSP Server project..." "+"
-  curl -fsSL https://github.com/sspserver/sspserver/archive/refs/heads/main.zip -o sspserver.zip >> "${LOG_FILE}" 2>&1
-  unzip sspserver.zip >> "${LOG_FILE}" 2>&1
-  rm sspserver.zip
-  mv sspserver-main/* ./ && rm -rf sspserver-main
-  log "SSP Server project downloaded" "+"
+    log "Service files downloaded and unzipped successfully" "+"
+    rm "${INSTALL_DIR}/sspserver.zip"
 }
+
+prepare_general_environment () {
+    ## Replace domains in .init.env
+    read -p "Enter the domain for the SSP API server [apidemo.sspserver.org]: " SSPSERVER_API_DOMAIN
+    SSPSERVER_API_DOMAIN=${SSPSERVER_API_DOMAIN:-apidemo.sspserver.org}
+    sed -i "s/apidemo.sspserver.org/${SSPSERVER_API_DOMAIN}/g" ${INSTALL_DIR}/.init.env
+
+    read -p "Enter the domain for the SSP UI server [demo.sspserver.org]: " SSPSERVER_UI_DOMAIN
+    SSPSERVER_UI_DOMAIN=${SSPSERVER_UI_DOMAIN:-demo.sspserver.org}
+    sed -i "s/demo.sspserver.org/${SSPSERVER_UI_DOMAIN}/g" ${INSTALL_DIR}/.init.env
+
+    read -p "Enter the domain for the SSP server [sspdemo.sspserver.org]: " SSPSERVER_DOMAIN
+    SSPSERVER_DOMAIN=${SSPSERVER_DOMAIN:-sspdemo.sspserver.org}
+    sed -i "s/sspdemo.sspserver.org/${SSPSERVER_DOMAIN}/g" ${INSTALL_DIR}/.init.env
+}
+
+prepare_sspservice () {
+    log "Preparing SSP service..." "+"
+    cp ${INSTALL_DIR}/sspserver/sspserver.service ${SYSTEMD_SERVICE_DIR}/sspserver.service
+
+    chmod 644 ${SYSTEMD_SERVICE_DIR}/sspserver.service
+
+    systemctl daemon-reload
+    systemctl enable sspserver.service
+    systemctl start sspserver.service
+    if [[ $? -ne 0 ]]; then
+        log "Failed to start SSP service" "+"
+        exit 1
+    else
+        log "SSP service started successfully" "+"
+    fi
+}
+
+###############################################################################
+## Standalone installation script for SSP Server on Ubuntu
+###############################################################################
+
+# 1. Install dependencies
+log "${BLUE}Installing dependencies...${NC}" "+"
+install_dependencies
+
+# 2. Install systemd dependency if not installed
+log "${BLUE}Checking for systemd...${NC}" "+"
+if ! command -v systemctl &> /dev/null
+then
+    log "${RED}Systemd not found, installing...${NC}" "+"
+    install_systemd_dependency
+else
+    log "${GREEN}Systemd is already installed${NC}" "+"
+fi
+
+# 3. Install docker if not installed
+log "${BLUE}Checking for Docker...${NC}" "+"
+if ! command -v docker &> /dev/null
+then
+    log "${RED}Docker not found, installing...${NC}" "+"
+    install_docker
+else
+    log "${GREEN}Docker is already installed${NC}" "+"
+fi
+
+# 4. Download and prepare service files
+log "${BLUE}Downloading and preparing service files...${NC}" "+"
+download_service_files
+
+# 5. Prepare project environment
+log "${BLUE}Preparing project environment...${NC}" "+"
+prepare_general_environment
+
+# 6. Pull SSP Server service
+log "${BLUE}Pulling SSP Server service...${NC}" "+"
+prepare_sspservice
