@@ -174,7 +174,7 @@ pass_generator () {
 download_service_files () {
     log "${BLUE}Downloading service files...${NC}" "+"
     DOWNLOAD_URL="${DOWNLOAD_STANDALONE_URI}" | sed "s/{{os-name}}/${OS_NAME}/g"
-    curl -L "${DOWNLOAD_URL}" > "${INSTALL_DIR}/sspserver.zip"
+    curl -sSL "${DOWNLOAD_URL}" -o "${INSTALL_DIR}/sspserver.zip"
     if [[ $? -ne 0 ]]; then
         log "Failed to download service files" "+"
         exit 1
