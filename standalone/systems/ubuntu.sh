@@ -14,7 +14,7 @@ INSTALL_DIR="/opt/sspserver"
 SYSTEMD_SERVICE_DIR="/etc/systemd/system"
 OS_NAME="ubuntu"
 
-DOWNLOAD_STANDALONE_URI="https://github.com/sspserver/deploy/raw/refs/heads/build/standalone/{{os-name}}.zip"
+DOWNLOAD_STANDALONE_URI="https://github.com/sspserver/deploy/raw/refs/heads/build/standalone/ubuntu.zip"
 
 mkdir -p "${LOG_DIR}"
 
@@ -173,8 +173,7 @@ pass_generator () {
 
 download_service_files () {
     log "${BLUE}Downloading service files...${NC}" "+"
-    DOWNLOAD_URL="${DOWNLOAD_STANDALONE_URI}" | sed "s/{{os-name}}/${OS_NAME}/g"
-    curl -sSL "${DOWNLOAD_URL}" -o "${INSTALL_DIR}/sspserver.zip"
+    curl -sSL "${DOWNLOAD_STANDALONE_URI}" -o "${INSTALL_DIR}/sspserver.zip"
     if [[ $? -ne 0 ]]; then
         log "Failed to download service files" "+"
         exit 1
