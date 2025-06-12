@@ -215,6 +215,14 @@ prepare_sspservice () {
 
     systemctl daemon-reload
     systemctl enable sspserver.service
+    # Stop and start the service to apply changes
+    log "Restarting SSP service..." "+"
+    if systemctl is-active --quiet sspserver.service; then
+        systemctl stop sspserver.service
+        log "SSP service is already running, stopping it..." "+"
+    else
+        log "SSP service is not running, starting it for the first time..." "+"
+    fi
     systemctl start sspserver.service
     if [[ $? -ne 0 ]]; then
         log "Failed to start SSP service" "+"
