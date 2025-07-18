@@ -1,0 +1,12 @@
+<script>
+  var adnet = adnet || {};
+  adnet.ad = adnet.ad || {};
+  adnet.ad.banner = adnet.ad.banner || {};
+  adnet.ad.banner.show = function (data) {
+      var el = document.getElementById(data.id);
+      if (el) {
+          el.innerHTML = data.html;
+      }
+  };
+  adnet.ad.banner.show({id: 'adnet-banner', html: '<a href=\"https://sspserver.dev\" target=\"_blank\"><img src=\"https://sspserver.dev/assets/img/logo.png\" alt=\"AdLab\" style=\"width: 100%; height: auto;\"></a>'});
+</script>

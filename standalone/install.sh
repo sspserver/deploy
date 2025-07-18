@@ -1,5 +1,35 @@
 #!/usr/bin/env bash
 
+#############################################################################
+# SSP Server One-Click Standalone Installer
+#############################################################################
+# Description: Universal installation script for SSP Server deployment
+# Author: SSP Server Team
+# Version: 1.0
+# 
+# Purpose: This script performs system compatibility checks and downloads
+#          OS-specific installation scripts for automated SSP Server deployment
+#
+# Supported Systems:
+#   - Ubuntu Linux (fully supported)
+#   - Debian Linux (partial support)  
+#   - CentOS/RHEL Linux (requires centos.sh implementation)
+#   - macOS/Darwin (requires compatibility fixes)
+#
+# System Requirements:
+#   - CPU: Architecture and core count defined in SUPPORTED_ARCH and MIN_CPU_CORES
+#   - RAM: Minimum memory defined in MIN_RAM_KB 
+#   - Storage: Minimum free space defined in MIN_STORAGE_KB in STORAGE_CHECK_PATH
+#   - Network: Internet connectivity for package downloads
+#   - OS: Supported systems listed in SUPPORTED_OS_LIST array
+#
+# Usage: curl -sSL <script-url> | bash
+#
+# Warning: This script downloads and executes remote code. Ensure you trust
+#          the source repository before execution.
+#############################################################################
+
+# Color codes for terminal output formatting
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -7,14 +37,52 @@ NC='\033[0m' # No Color
 OK="${GREEN}OK${NC}"
 ERROR="${RED}ERROR${NC}"
 
-LOG_DIR="/var/log/sspserver"
-LOG_FILE="${LOG_DIR}/sspserver_1click_standalone.log"
-INSTALL_DIR="/opt/sspserver"
+# Installation directories and files
+LOG_DIR="/var/log/sspserver"                            # Directory for installation logs
+LOG_FILE="${LOG_DIR}/sspserver_1click_standalone.log"   # Main log file path
+INSTALL_DIR="/opt/sspserver"                            # Target installation directory
 
+# Remote repository URL template for OS-specific installers
+# Template variable {{os-name}} will be replaced with actual OS identifier
 RUN_INSTALLER_SCRIPT_URI="https://raw.githubusercontent.com/sspserver/deploy/refs/heads/build/standalone/install-{{os-name}}.sh"
 
+#############################################################################
+# SYSTEM REQUIREMENTS CONFIGURATION
+#############################################################################
+# These variables define the minimum system requirements for SSP Server.
+# Modify these values to adjust installation requirements as needed.
+
+# CPU Requirements
+MIN_CPU_CORES=2                    # Minimum number of CPU cores/threads required
+SUPPORTED_ARCH="x86_64"           # Required CPU architecture (only x86_64 supported)
+
+# Memory Requirements  
+MIN_RAM_KB=3900000                # Minimum RAM in kilobytes (approximately 4GB)
+                                  # Formula: 4GB = 4 * 1024 * 1024 = 4,194,304 KB
+                                  # Using 3,900,000 KB to account for system overhead
+
+# Storage Requirements
+MIN_STORAGE_KB=38000000           # Minimum free disk space in kilobytes (approximately 40GB)
+                                  # Formula: 40GB = 40 * 1024 * 1024 = 41,943,040 KB  
+                                  # Using 38,000,000 KB to account for filesystem overhead
+STORAGE_CHECK_PATH="/var/lib"     # Directory path to check for available disk space
+
+# Supported Operating Systems
+# Array of OS identifiers that are officially supported by this installer
+SUPPORTED_OS_LIST=("centos" "debian" "ubuntu" "darwin")
+
+#############################################################################
+
+# Create log directory if it doesn't exist
 mkdir -p "${LOG_DIR}"
 
+# Function: log
+# Description: Writes log messages to file and optionally to stdout with timestamp
+# Parameters: 
+#   $1 - log message string
+#   $2 - optional "+" flag to also display message on stdout
+# Returns: None
+# Example: log "Installation started" "+"
 log () {
     echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" >> "${LOG_FILE}"
     echo "$(date '+%d-%m-%Y %H:%M:%S') $1" >> "${LOG_FILE}"
@@ -23,9 +91,51 @@ log () {
     fi
 }
 
+#############################################################################
+# MESSAGE OUTPUT FUNCTIONS
+#############################################################################
+# Standardized functions for consistent message formatting and output
+
+# Function: print_error
+# Description: Displays error messages in red color with ERROR prefix
+# Parameters:
+#   $1 - error message string
+# Returns: Prints formatted error message to stderr
+# Example: print_error "Failed to download file"
+print_error () {
+    echo -e "${ERROR}: $1" >&2
+}
+
+# Function: print_info  
+# Description: Displays informational messages in blue color
+# Parameters:
+#   $1 - info message string
+# Returns: Prints formatted info message to stdout
+# Example: print_info "Checking system requirements..."
+print_info () {
+    echo -e "${BLUE}$1${NC}"
+}
+
+# Function: print_success
+# Description: Displays success messages in green color
+# Parameters:
+#   $1 - success message string
+# Returns: Prints formatted success message to stdout
+# Example: print_success "Installation completed successfully"
+print_success () {
+    echo -e "${GREEN}$1${NC}"
+}
+
+#############################################################################
+
 # Helper functions
 
-print_info () {
+# Function: print_system_info
+# Description: Displays system information including OS name, version, hostname and architecture
+# Parameters: None
+# Returns: Prints system info to stdout
+# Dependencies: uname command
+print_system_info () {
     OS_NAME=$(uname -s | tr '[:upper:]' '[:lower:]')
     OS_VERS=$(uname -r | tr '[:upper:]' '[:lower:]')
     OS_TYPE=$(uname -n | tr '[:upper:]' '[:lower:]')
@@ -37,6 +147,12 @@ print_info () {
     echo "OS Arch: $OS_ARCH"
 }
 
+# Function: convert_bytes
+# Description: Converts byte values to human-readable format (GB/MB/Bytes)
+# Parameters:
+#   $1 - number of bytes to convert
+# Returns: Formatted string with appropriate unit (GB/MB/Bytes)
+# Dependencies: awk, printf
 convert_bytes () {
     local bytes=$1
 
@@ -52,6 +168,12 @@ convert_bytes () {
     fi
 }
 
+# Function: convert_kilobytes
+# Description: Converts kilobyte values to human-readable format (GB/MB/KB)
+# Parameters:
+#   $1 - number of kilobytes to convert
+# Returns: Formatted string with appropriate unit (GB/MB/KB)
+# Dependencies: awk, printf
 convert_kilobytes () {
     local kilobytes=$1
 
@@ -67,6 +189,12 @@ convert_kilobytes () {
     fi
 }
 
+# Function: get_os_name
+# Description: Determines the Linux distribution name by checking system files
+# Parameters: None
+# Returns: OS identifier string (ubuntu, debian, centos, unknown)
+# Dependencies: Access to /etc/os-release, /etc/redhat-release, /etc/debian_version
+# Note: Uses fallback mechanism for older systems without os-release
 get_os_name () {
     if [[ -f /etc/os-release ]]; then
         # Source the os-release file
@@ -81,38 +209,67 @@ get_os_name () {
     fi
 }
 
+# Function: check_os
+# Description: Validates if current OS is supported by the installer
+# Parameters: None
+# Returns: Exits with code 0 if OS is unsupported, continues if supported
+# Dependencies: get_os_name function, log function, SUPPORTED_OS_LIST global variable
+# Supported OS: Defined in SUPPORTED_OS_LIST array
 check_os () {
-    os_name=$(get_os_name) # $(uname -s | tr '[:upper:]' '[:lower:]')
-    supported_os=("centos" "debian" "ubuntu" "darwin")
-    if [[ " ${supported_os[@]} " =~ " ${os_name} " ]]; then
+    os_name=$(get_os_name)
+    if [[ " ${SUPPORTED_OS_LIST[@]} " =~ " ${os_name} " ]]; then
         log "Check OS [${os_name}] - ${OK}" "+"
-    else echo -e "${ERROR}: Unsupported OS ${os_name}. Exiting..."
+    else 
+        print_error "Unsupported OS ${os_name}. Supported: ${SUPPORTED_OS_LIST[*]}. Exiting..."
         exit 0
     fi
 }
 
+# Function: check_architecture
+# Description: Validates if current CPU architecture is supported
+# Parameters: None
+# Returns: Logs success for supported arch, shows error for unsupported architectures
+# Dependencies: uname command, log function, SUPPORTED_ARCH global variable
+# Note: Currently only x86_64 is supported, exit is commented out for other archs
 check_architecture () {
     cpu_type=$(uname -m)
-    if [ "$cpu_type" == "x86_64" ]; then
+    if [ "$cpu_type" == "$SUPPORTED_ARCH" ]; then
         log "Check architecture [${cpu_type}] - ${OK}" "+"
-    else echo -e "${ERROR}: SSPServer should be installed only on x86/64 CPU architecture, current is '${cpu_type}'. Exiting..."
+    else 
+        print_error "SSPServer should be installed only on ${SUPPORTED_ARCH} CPU architecture, current is '${cpu_type}'. Exiting..."
         # exit 0
     fi
 }
 
+# Function: check_cpu
+# Description: Verifies system has minimum required CPU cores
+# Parameters: None
+# Returns: Exits with code 0 if insufficient cores, continues if adequate
+# Dependencies: /proc/cpuinfo file, grep command, log function, MIN_CPU_CORES global variable
+# Requirement: Minimum CPU threads/cores defined in MIN_CPU_CORES
+# Warning: Uses Linux-specific /proc/cpuinfo - will fail on macOS/BSD systems
 check_cpu () {
     cpu_threads=$(grep -c ^processor /proc/cpuinfo)
-    if [ "$cpu_threads" -lt 2 ] ; then
-        echo -e "${ERROR}: SSPServer requires 2 or more CPU threads to operate. Exiting..."
+    if [ "$cpu_threads" -lt "$MIN_CPU_CORES" ] ; then
+        print_error "SSPServer requires ${MIN_CPU_CORES} or more CPU threads to operate. Current: ${cpu_threads}. Exiting..."
         exit 0
     else log "Check CPU [${cpu_threads}] - ${OK}" "+"
     fi
 }
 
+# Function: check_ram
+# Description: Verifies system has minimum required RAM
+# Parameters: None
+# Returns: Exits with code 0 if insufficient RAM, continues if adequate
+# Dependencies: /proc/meminfo file, grep, awk commands, convert_kilobytes function, MIN_RAM_KB global variable
+# Requirement: Minimum RAM defined in MIN_RAM_KB (default ~4GB)
+# Warning: Uses Linux-specific /proc/meminfo - will fail on macOS/BSD systems
 check_ram () {
     ram_total=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-    if [ "$ram_total" -lt 3900000 ] ; then
-        echo -e "${ERROR}: There requires 4GB of RAM on the server for the SSPServer to operate. Exiting..."
+    if [ "$ram_total" -lt "$MIN_RAM_KB" ] ; then
+        ram_total_readable=$(convert_kilobytes $ram_total)
+        min_ram_readable=$(convert_kilobytes $MIN_RAM_KB)
+        print_error "SSPServer requires ${min_ram_readable} of RAM to operate. Current: ${ram_total_readable}. Exiting..."
         exit 0
     else
         ram_size=$(convert_kilobytes $ram_total)
@@ -120,19 +277,35 @@ check_ram () {
     fi
 }
 
+# Function: check_storage
+# Description: Verifies system has minimum required free disk space
+# Parameters: None
+# Returns: Exits with code 0 if insufficient space, continues if adequate
+# Dependencies: df command with --output flag, convert_kilobytes function, MIN_STORAGE_KB and STORAGE_CHECK_PATH global variables
+# Requirement: Minimum free space defined in MIN_STORAGE_KB (default ~40GB) in STORAGE_CHECK_PATH directory
+# Warning: Uses GNU df --output flag - will fail on macOS/BSD systems with different df syntax
 check_storage () {
-    free_storage=$(df --output=avail "/var/lib" | tail -n 1)
-    if  [[ "$free_storage" -lt 38000000 ]]; then
-        echo -e "${ERROR}: There requires 40Gb of free disk storage to operate. Exiting..."
+    free_storage=$(df --output=avail "$STORAGE_CHECK_PATH" | tail -n 1)
+    if  [[ "$free_storage" -lt "$MIN_STORAGE_KB" ]]; then
+        free_storage_readable=$(convert_kilobytes $free_storage)
+        min_storage_readable=$(convert_kilobytes $MIN_STORAGE_KB)
+        print_error "SSPServer requires ${min_storage_readable} of free disk storage in ${STORAGE_CHECK_PATH} to operate. Current: ${free_storage_readable}. Exiting..."
         exit 0
     else
         storage_size=$(convert_kilobytes $free_storage)
-        log "Free storage check [${storage_size}] - ${OK}" "+"
+        log "Free storage check [${storage_size}] in ${STORAGE_CHECK_PATH} - ${OK}" "+"
     fi
 }
 
 # Install the standalone version of the app
 
+# Function: run_install_script
+# Description: Downloads and executes OS-specific installation script from remote repository
+# Parameters: None
+# Returns: Executes the downloaded script, inherits its exit code
+# Dependencies: get_os_name function, curl, chmod, bash
+# Remote URL: https://raw.githubusercontent.com/sspserver/deploy/refs/heads/build/standalone/install-{os-name}.sh
+# Warning: Downloads and executes remote script - security risk if repository is compromised
 run_install_script () {
     os_name=$(get_os_name)
     URL=`echo "${RUN_INSTALLER_SCRIPT_URI}" | sed "s/{{os-name}}/${os_name}/g"`
@@ -141,31 +314,44 @@ run_install_script () {
     bash /tmp/install_script.sh
 }
 
+#############################################################################
+# MAIN EXECUTION FLOW
+#############################################################################
+# The script follows a systematic validation approach before installation:
+# 1. Display system information for troubleshooting
+# 2. Validate OS compatibility  
+# 3. Check CPU architecture requirements
+# 4. Verify minimum CPU core count
+# 5. Validate RAM requirements
+# 6. Check available disk space
+# 7. Download and execute OS-specific installer
+#############################################################################
+
 # 1. Print OS information
-echo -e "${BLUE}System Information:>${NC}"
-print_info
+print_info "System Information:"
+print_system_info
 
 # 2. Check OS
-echo -e "${BLUE}Checking OS...${NC}"
+print_info "Checking OS..."
 check_os
 
 # 3. Check architecture
-echo -e "${BLUE}Checking architecture...${NC}"
+print_info "Checking architecture..."
 check_architecture
 
 # 4. Check CPU
-echo -e "${BLUE}Checking CPU...${NC}"
+print_info "Checking CPU..."
 check_cpu
 
 # 5. Check RAM
-echo -e "${BLUE}Checking RAM...${NC}"
+print_info "Checking RAM..."
 check_ram
 
 # 6. Check storage
-echo -e "${BLUE}Checking storage...${NC}"
+print_info "Checking storage..."
 check_storage
 
-echo -e "${GREEN}All checks passed. Proceeding with the installation...${NC}"
+print_success "All checks passed. Proceeding with the installation..."
 echo "==============================================="
 
 # 7. Run the install script
