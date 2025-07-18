@@ -53,8 +53,8 @@ RUN_INSTALLER_SCRIPT_URI="https://raw.githubusercontent.com/sspserver/deploy/ref
 # Modify these values to adjust installation requirements as needed.
 
 # CPU Requirements
-MIN_CPU_CORES=2                    # Minimum number of CPU cores/threads required
-SUPPORTED_ARCH="x86_64"           # Required CPU architecture (only x86_64 supported)
+MIN_CPU_CORES=2                                 # Minimum number of CPU cores/threads required
+SUPPORTED_ARCH=("x86_64" "arm64" "aarch64")     # Supported CPU architectures (x86_64 and ARM64)
 
 # Memory Requirements  
 MIN_RAM_KB=3900000                # Minimum RAM in kilobytes (approximately 4GB)
@@ -158,10 +158,10 @@ convert_bytes () {
 
     if [[ $bytes -ge 1073741824 ]]; then
         # Convert to GB
-        echo | awk "{printf \"%.2f GB\n\", $bytes / 1073741824}"
+        awk "BEGIN {printf \"%.2f GB\n\", $bytes / 1073741824}"
     elif [[ $bytes -ge 1048576 ]]; then
         # Convert to MB
-        echo | awk "{printf \"%.2f MB\n\", $bytes / 1048576}"
+        awk "BEGIN {printf \"%.2f MB\n\", $bytes / 1048576}"
     else
         # Less than 1 MB
         printf "%d Bytes\n" "$bytes"
@@ -179,10 +179,10 @@ convert_kilobytes () {
 
     if [[ $kilobytes -ge 1048576 ]]; then
         # Convert to GB
-        echo | awk "{printf \"%.2f GB\n\", $kilobytes / 1048576}"
+        awk "BEGIN {printf \"%.2f GB\n\", $kilobytes / 1048576}"
     elif [[ $kilobytes -ge 1024 ]]; then
         # Convert to MB
-        echo | awk "{printf \"%.2f MB\n\", $kilobytes / 1024}"
+        awk "BEGIN {printf \"%.2f MB\n\", $kilobytes / 1024}"
     else
         # Less than 1 MB
         printf "%d KB\n" "$kilobytes"
@@ -190,13 +190,16 @@ convert_kilobytes () {
 }
 
 # Function: get_os_name
-# Description: Determines the Linux distribution name by checking system files
+# Description: Determines the operating system name by checking system info and files
 # Parameters: None
-# Returns: OS identifier string (ubuntu, debian, centos, unknown)
-# Dependencies: Access to /etc/os-release, /etc/redhat-release, /etc/debian_version
-# Note: Uses fallback mechanism for older systems without os-release
+# Returns: OS identifier string (darwin, ubuntu, debian, centos, unknown)
+# Dependencies: uname command, access to /etc/os-release, /etc/redhat-release, /etc/debian_version
+# Note: Now supports macOS/Darwin detection via uname, uses fallback mechanism for older Linux systems
 get_os_name () {
-    if [[ -f /etc/os-release ]]; then
+    # Check for macOS/Darwin first
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        echo "darwin"
+    elif [[ -f /etc/os-release ]]; then
         # Source the os-release file
         . /etc/os-release
         echo "$ID" # ID gives the base name of the OS
@@ -230,44 +233,60 @@ check_os () {
 # Parameters: None
 # Returns: Logs success for supported arch, shows error for unsupported architectures
 # Dependencies: uname command, log function, SUPPORTED_ARCH global variable
-# Note: Currently only x86_64 is supported, exit is commented out for other archs
+# Note: Supports x86_64, arm64, and aarch64 architectures
 check_architecture () {
     cpu_type=$(uname -m)
-    if [ "$cpu_type" == "$SUPPORTED_ARCH" ]; then
+    if [[ " ${SUPPORTED_ARCH[@]} " =~ " ${cpu_type} " ]]; then
         log "Check architecture [${cpu_type}] - ${OK}" "+"
     else 
-        print_error "SSPServer should be installed only on ${SUPPORTED_ARCH} CPU architecture, current is '${cpu_type}'. Exiting..."
-        # exit 0
+        print_error "SSPServer supports only ${SUPPORTED_ARCH[*]} CPU architectures, current is '${cpu_type}'. Exiting..."
+        exit 0
     fi
 }
 
 # Function: check_cpu
-# Description: Verifies system has minimum required CPU cores
+# Description: Verifies system has minimum required CPU cores (cross-platform)
 # Parameters: None
 # Returns: Exits with code 0 if insufficient cores, continues if adequate
-# Dependencies: /proc/cpuinfo file, grep command, log function, MIN_CPU_CORES global variable
+# Dependencies: sysctl (macOS) or /proc/cpuinfo (Linux), log function, MIN_CPU_CORES global variable
 # Requirement: Minimum CPU threads/cores defined in MIN_CPU_CORES
-# Warning: Uses Linux-specific /proc/cpuinfo - will fail on macOS/BSD systems
+# Note: Now supports both Linux (/proc/cpuinfo) and macOS (sysctl) systems
 check_cpu () {
-    cpu_threads=$(grep -c ^processor /proc/cpuinfo)
-    if [ "$cpu_threads" -lt "$MIN_CPU_CORES" ] ; then
-        print_error "SSPServer requires ${MIN_CPU_CORES} or more CPU threads to operate. Current: ${cpu_threads}. Exiting..."
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        # macOS
+        cpu_threads=$(sysctl -n hw.ncpu 2>/dev/null)
+    else
+        # Linux
+        cpu_threads=$(grep -c ^processor /proc/cpuinfo 2>/dev/null)
+    fi
+    
+    if [[ -z "$cpu_threads" ]] || [[ "$cpu_threads" -lt "$MIN_CPU_CORES" ]]; then
+        print_error "SSPServer requires ${MIN_CPU_CORES} or more CPU threads to operate. Current: ${cpu_threads:-unknown}. Exiting..."
         exit 0
-    else log "Check CPU [${cpu_threads}] - ${OK}" "+"
+    else 
+        log "Check CPU [${cpu_threads}] - ${OK}" "+"
     fi
 }
 
 # Function: check_ram
-# Description: Verifies system has minimum required RAM
+# Description: Verifies system has minimum required RAM (cross-platform)
 # Parameters: None
 # Returns: Exits with code 0 if insufficient RAM, continues if adequate
-# Dependencies: /proc/meminfo file, grep, awk commands, convert_kilobytes function, MIN_RAM_KB global variable
+# Dependencies: sysctl (macOS) or /proc/meminfo (Linux), convert_kilobytes function, MIN_RAM_KB global variable
 # Requirement: Minimum RAM defined in MIN_RAM_KB (default ~4GB)
-# Warning: Uses Linux-specific /proc/meminfo - will fail on macOS/BSD systems
+# Note: Now supports both Linux (/proc/meminfo) and macOS (sysctl) systems
 check_ram () {
-    ram_total=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-    if [ "$ram_total" -lt "$MIN_RAM_KB" ] ; then
-        ram_total_readable=$(convert_kilobytes $ram_total)
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        # macOS
+        ram_bytes=$(sysctl -n hw.memsize 2>/dev/null)
+        ram_total=$((ram_bytes / 1024))
+    else
+        # Linux
+        ram_total=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}')
+    fi
+    
+    if [[ -z "$ram_total" ]] || [[ "$ram_total" -lt "$MIN_RAM_KB" ]]; then
+        ram_total_readable=$(convert_kilobytes ${ram_total:-0})
         min_ram_readable=$(convert_kilobytes $MIN_RAM_KB)
         print_error "SSPServer requires ${min_ram_readable} of RAM to operate. Current: ${ram_total_readable}. Exiting..."
         exit 0
@@ -278,16 +297,23 @@ check_ram () {
 }
 
 # Function: check_storage
-# Description: Verifies system has minimum required free disk space
+# Description: Verifies system has minimum required free disk space (cross-platform)
 # Parameters: None
 # Returns: Exits with code 0 if insufficient space, continues if adequate
-# Dependencies: df command with --output flag, convert_kilobytes function, MIN_STORAGE_KB and STORAGE_CHECK_PATH global variables
+# Dependencies: df command (BSD/GNU variants), convert_kilobytes function, MIN_STORAGE_KB and STORAGE_CHECK_PATH global variables
 # Requirement: Minimum free space defined in MIN_STORAGE_KB (default ~40GB) in STORAGE_CHECK_PATH directory
-# Warning: Uses GNU df --output flag - will fail on macOS/BSD systems with different df syntax
+# Note: Now supports both Linux (GNU df --output) and macOS (BSD df) systems
 check_storage () {
-    free_storage=$(df --output=avail "$STORAGE_CHECK_PATH" | tail -n 1)
-    if  [[ "$free_storage" -lt "$MIN_STORAGE_KB" ]]; then
-        free_storage_readable=$(convert_kilobytes $free_storage)
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        # macOS - use BSD df syntax
+        free_storage=$(df "$STORAGE_CHECK_PATH" 2>/dev/null | tail -1 | awk '{print $4}')
+    else
+        # Linux - use GNU df syntax
+        free_storage=$(df --output=avail "$STORAGE_CHECK_PATH" 2>/dev/null | tail -n 1)
+    fi
+    
+    if [[ -z "$free_storage" ]] || [[ "$free_storage" -lt "$MIN_STORAGE_KB" ]]; then
+        free_storage_readable=$(convert_kilobytes ${free_storage:-0})
         min_storage_readable=$(convert_kilobytes $MIN_STORAGE_KB)
         print_error "SSPServer requires ${min_storage_readable} of free disk storage in ${STORAGE_CHECK_PATH} to operate. Current: ${free_storage_readable}. Exiting..."
         exit 0
@@ -300,16 +326,32 @@ check_storage () {
 # Install the standalone version of the app
 
 # Function: run_install_script
-# Description: Downloads and executes OS-specific installation script from remote repository
+# Description: Downloads and executes OS-specific installation script from remote repository with error handling
 # Parameters: None
 # Returns: Executes the downloaded script, inherits its exit code
-# Dependencies: get_os_name function, curl, chmod, bash
+# Dependencies: get_os_name function, curl, chmod, bash, print_info and print_error functions
 # Remote URL: https://raw.githubusercontent.com/sspserver/deploy/refs/heads/build/standalone/install-{os-name}.sh
-# Warning: Downloads and executes remote script - security risk if repository is compromised
+# Note: Now includes download validation and error handling for improved reliability
 run_install_script () {
     os_name=$(get_os_name)
-    URL=`echo "${RUN_INSTALLER_SCRIPT_URI}" | sed "s/{{os-name}}/${os_name}/g"`
-    curl -sSL "${URL}" -o /tmp/install_script.sh
+    URL=$(echo "${RUN_INSTALLER_SCRIPT_URI}" | sed "s/{{os-name}}/${os_name}/g")
+    
+    print_info "Downloading OS-specific installer for ${os_name}..."
+    log "Downloading installer from: ${URL}" "+"
+    
+    if ! curl -sSL "${URL}" -o /tmp/install_script.sh; then
+        print_error "Failed to download installation script from ${URL}"
+        log "Download failed for URL: ${URL}" "+"
+        exit 1
+    fi
+    
+    if [[ ! -f /tmp/install_script.sh ]] || [[ ! -s /tmp/install_script.sh ]]; then
+        print_error "Downloaded script is empty or missing"
+        log "Script validation failed: /tmp/install_script.sh" "+"
+        exit 1
+    fi
+    
+    log "Script downloaded successfully, executing..." "+"
     chmod +x /tmp/install_script.sh
     bash /tmp/install_script.sh
 }
@@ -353,6 +395,22 @@ check_storage
 
 print_success "All checks passed. Proceeding with the installation..."
 echo "==============================================="
+
+# Ask user confirmation before proceeding
+echo ""
+print_info "Ready to download and execute OS-specific installation script."
+print_info "This will install SSP Server and all required dependencies."
+echo ""
+read -p "Do you want to continue with the installation? [y/N]: " -n 1 -r
+echo ""
+
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    print_info "Installation cancelled by user."
+    log "Installation cancelled by user input" "+"
+    exit 0
+fi
+
+print_info "Starting installation..."
 
 # 7. Run the install script
 run_install_script
