@@ -24,6 +24,17 @@
 #   - OS: Supported systems listed in SUPPORTED_OS_LIST array
 #
 # Usage: curl -sSL <script-url> | bash
+#        OR
+#        ./install.sh [-y|--yes] [-h|--help]
+#
+# Options:
+#   -y, --yes    Automatically answer 'yes' to all prompts (non-interactive mode)
+#   -h, --help   Display usage information and exit
+#
+# Examples:
+#   ./install.sh           # Interactive installation with confirmation prompts
+#   ./install.sh -y        # Automated installation without user prompts
+#   curl -sSL <url> | bash # Remote execution (interactive mode)
 #
 # Warning: This script downloads and executes remote code. Ensure you trust
 #          the source repository before execution.
@@ -41,6 +52,7 @@ ERROR="${RED}ERROR${NC}"
 LOG_DIR="/var/log/sspserver"                            # Directory for installation logs
 LOG_FILE="${LOG_DIR}/sspserver_1click_standalone.log"   # Main log file path
 INSTALL_DIR="/opt/sspserver"                            # Target installation directory
+TEMP_INSTALL_SCRIPT="/tmp/sspserver_installer_$(date +%s)_$$.sh"  # Temporary OS-specific installer script
 
 # Remote repository URL template for OS-specific installers
 # Template variable {{os-name}} will be replaced with actual OS identifier
@@ -70,6 +82,49 @@ STORAGE_CHECK_PATH="/var/lib"     # Directory path to check for available disk s
 # Supported Operating Systems
 # Array of OS identifiers that are officially supported by this installer
 SUPPORTED_OS_LIST=("centos" "debian" "ubuntu" "darwin")
+
+#############################################################################
+
+#############################################################################
+# COMMAND LINE PARAMETERS PROCESSING
+#############################################################################
+# Process command line arguments for automated installation options
+
+# Temporary error function for parameter processing (full version defined later)
+print_error_temp () {
+    echo -e "\033[0;31mERROR\033[0m: $1" >&2
+}
+
+# Default values
+AUTO_YES=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -y|--yes)
+            AUTO_YES=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  -y, --yes    Automatically answer 'yes' to all prompts"
+            echo "  -h, --help   Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  $0           # Interactive installation"
+            echo "  $0 -y        # Automated installation (no prompts)"
+            echo ""
+            exit 0
+            ;;
+        *)
+            print_error_temp "Unknown option: $1"
+            echo "Use $0 --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 #############################################################################
 
@@ -259,7 +314,7 @@ check_cpu () {
         # Linux
         cpu_threads=$(grep -c ^processor /proc/cpuinfo 2>/dev/null)
     fi
-    
+
     if [[ -z "$cpu_threads" ]] || [[ "$cpu_threads" -lt "$MIN_CPU_CORES" ]]; then
         print_error "SSPServer requires ${MIN_CPU_CORES} or more CPU threads to operate. Current: ${cpu_threads:-unknown}. Exiting..."
         exit 0
@@ -284,7 +339,7 @@ check_ram () {
         # Linux
         ram_total=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}')
     fi
-    
+
     if [[ -z "$ram_total" ]] || [[ "$ram_total" -lt "$MIN_RAM_KB" ]]; then
         ram_total_readable=$(convert_kilobytes ${ram_total:-0})
         min_ram_readable=$(convert_kilobytes $MIN_RAM_KB)
@@ -311,7 +366,7 @@ check_storage () {
         # Linux - use GNU df syntax
         free_storage=$(df --output=avail "$STORAGE_CHECK_PATH" 2>/dev/null | tail -n 1)
     fi
-    
+
     if [[ -z "$free_storage" ]] || [[ "$free_storage" -lt "$MIN_STORAGE_KB" ]]; then
         free_storage_readable=$(convert_kilobytes ${free_storage:-0})
         min_storage_readable=$(convert_kilobytes $MIN_STORAGE_KB)
@@ -335,25 +390,43 @@ check_storage () {
 run_install_script () {
     os_name=$(get_os_name)
     URL=$(echo "${RUN_INSTALLER_SCRIPT_URI}" | sed "s/{{os-name}}/${os_name}/g")
-    
+
     print_info "Downloading OS-specific installer for ${os_name}..."
     log "Downloading installer from: ${URL}" "+"
-    
-    if ! curl -sSL "${URL}" -o /tmp/install_script.sh; then
+
+    if ! curl -sSL "${URL}" -o "${TEMP_INSTALL_SCRIPT}"; then
         print_error "Failed to download installation script from ${URL}"
         log "Download failed for URL: ${URL}" "+"
         exit 1
     fi
-    
-    if [[ ! -f /tmp/install_script.sh ]] || [[ ! -s /tmp/install_script.sh ]]; then
+
+    if [[ ! -f "${TEMP_INSTALL_SCRIPT}" ]] || [[ ! -s "${TEMP_INSTALL_SCRIPT}" ]]; then
         print_error "Downloaded script is empty or missing"
-        log "Script validation failed: /tmp/install_script.sh" "+"
+        log "Script validation failed: ${TEMP_INSTALL_SCRIPT}" "+"
         exit 1
     fi
-    
+
     log "Script downloaded successfully, executing..." "+"
-    chmod +x /tmp/install_script.sh
-    bash /tmp/install_script.sh
+    chmod +x "${TEMP_INSTALL_SCRIPT}"
+
+    # Pass the -y flag to the downloaded script if auto-confirmation is enabled
+    if [[ "$AUTO_YES" == "true" ]]; then
+        bash "${TEMP_INSTALL_SCRIPT}" -y
+    else
+        bash "${TEMP_INSTALL_SCRIPT}"
+    fi
+
+    # Store exit code before cleanup
+    script_exit_code=$?
+
+    # Clean up temporary file
+    if [[ -f "${TEMP_INSTALL_SCRIPT}" ]]; then
+        rm -f "${TEMP_INSTALL_SCRIPT}"
+        log "Temporary installer script cleaned up: ${TEMP_INSTALL_SCRIPT}" "+"
+    fi
+
+    # Exit with the same code as the installer script
+    exit $script_exit_code
 }
 
 #############################################################################
@@ -398,16 +471,21 @@ echo "==============================================="
 
 # Ask user confirmation before proceeding
 echo ""
-print_info "Ready to download and execute OS-specific installation script."
-print_info "This will install SSP Server and all required dependencies."
-echo ""
-read -p "Do you want to continue with the installation? [y/N]: " -n 1 -r
-echo ""
+if [[ "$AUTO_YES" == "true" ]]; then
+    print_info "Auto-confirmation mode enabled (-y flag). Proceeding with installation automatically."
+    log "Installation proceeding automatically due to -y flag" "+"
+else
+    print_info "Ready to download and execute OS-specific installation script."
+    print_info "This will install SSP Server and all required dependencies."
+    echo ""
+    read -p "Do you want to continue with the installation? [y/N]: " -n 1 -r
+    echo ""
 
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    print_info "Installation cancelled by user."
-    log "Installation cancelled by user input" "+"
-    exit 0
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        print_info "Installation cancelled by user."
+        log "Installation cancelled by user input" "+"
+        exit 0
+    fi
 fi
 
 print_info "Starting installation..."
