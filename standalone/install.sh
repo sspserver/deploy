@@ -23,18 +23,31 @@
 #   - Network: Internet connectivity for package downloads
 #   - OS: Supported systems listed in SUPPORTED_OS_LIST array
 #
-# Usage: curl -sSL <script-url> | bash
-#        OR
-#        ./install.sh [-y|--yes] [-h|--help]
+# Usage: 
+#   Interactive mode (with TTY):
+#     ./install.sh           # Download and run locally for interactive mode
+#     bash <(curl -sSL <url>) # Interactive mode with process substitution
+#   
+#   Non-interactive mode:
+#     ./install.sh -y        # Local execution without prompts
+#     curl -sSL <url> | bash -s -- -y # Remote execution without prompts
 #
 # Options:
 #   -y, --yes    Automatically answer 'yes' to all prompts (non-interactive mode)
 #   -h, --help   Display usage information and exit
 #
 # Examples:
-#   ./install.sh           # Interactive installation with confirmation prompts
-#   ./install.sh -y        # Automated installation without user prompts
-#   curl -sSL <url> | bash # Remote execution (interactive mode)
+#   # Interactive installation (download first, then run):
+#   curl -sSL <url> -o install.sh && chmod +x install.sh && ./install.sh
+#   
+#   # Or using process substitution for interactive mode:
+#   bash <(curl -sSL <url>)
+#   
+#   # Automated installation without user prompts:
+#   curl -sSL <url> | bash -s -- -y
+#
+# Note: When using 'curl | bash' without -y flag, the script will detect
+#       non-interactive mode and require you to use the -y flag.
 #
 # Warning: This script downloads and executes remote code. Ensure you trust
 #          the source repository before execution.
@@ -99,15 +112,21 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -h|--help)
-            echo "Usage: $0 [OPTIONS]"
+            echo "Usage: $0 [-y|--yes] [-h|--help]"
             echo ""
             echo "Options:"
             echo "  -y, --yes    Automatically answer 'yes' to all prompts"
-            echo "  -h, --help   Show this help message"
+            echo "  -h, --help   Display this help message"
             echo ""
             echo "Examples:"
-            echo "  $0           # Interactive installation"
-            echo "  $0 -y        # Automated installation (no prompts)"
+            echo "  # Interactive mode (download first, then run):"
+            echo "  curl -sSL <url> -o install.sh && chmod +x install.sh && ./install.sh"
+            echo "  # Or using process substitution:"
+            echo "  bash <(curl -sSL <url>)"
+            echo ""
+            echo "  # Automated mode (no prompts):"
+            echo "  $0 -y        # Local execution"
+            echo "  curl -sSL <url> | bash -s -- -y # Remote execution"
             echo ""
             exit 0
             ;;
@@ -463,12 +482,22 @@ else
     log "info" "Ready to download and execute OS-specific installation script." "+"
     log "info" "This will install SSP Server and all required dependencies." "+"
     echo ""
-    read -p "Do you want to continue with the installation? [y/N]: " -n 1 -r
-    echo ""
-
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    
+    # Check if we have a TTY (interactive terminal)
+    if [ -t 0 ]; then
+        # Interactive mode with TTY
+        read -p "Do you want to continue with the installation? [y/N]: " -n 1 -r < /dev/tty
+        echo ""
+        
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log "info" "Installation cancelled by user." "+"
+            exit 0
+        fi
+    else
+        # Non-interactive mode (e.g., piped from curl)
+        log "info" "Non-interactive mode detected (no TTY)." "+"
+        log "info" "To proceed automatically, use: curl -sSL <url> | bash -s -- -y" "+"
         log "info" "Installation cancelled by user." "+"
-        log "info" "Installation cancelled by user input" "+"
         exit 0
     fi
 fi
