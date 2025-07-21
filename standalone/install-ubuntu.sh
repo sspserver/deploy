@@ -75,10 +75,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Log startup information
-log "info" "Starting SSP Server installation for Ubuntu/Debian" "+"
-log "info" "Auto-confirmation mode: ${AUTO_YES}" "+"
-
 # Function: log
 # Description: Universal logging function with message type support
 # Parameters:
@@ -316,6 +312,44 @@ download_service_files () {
     rm "${INSTALL_DIR}/sspserver.zip"
 }
 
+# Parameters:
+#  $1 - env file path
+#  $2 - variable name
+#  $3 - default variable value
+#  $4 - prompt message
+#  $5 - auto-confirmation mode (optional)
+setup_env_file_variable () {
+    local env_file="$1"
+    local var_name="$2"
+    local default_value="$3"
+    local prompt_message="$4"
+    local auto_confirm="$5"
+
+    # Check if variable is already set in env file
+    if grep -q "^${var_name}=[^\s]+" "${env_file}"; then
+        log "info" "Environment variable '${var_name}' is already set in ${env_file}" "+"
+    else
+        # Prompt user for value
+        if [[ "$auto_confirm" == "true" ]]; then
+            # Use default value in auto mode
+            user_input=${default_value}
+            log "info" "Using default value for '${var_name}': ${user_input}" "+"
+        else
+            read -p "${prompt_message} [${default_value}]: " user_input
+            user_input=${user_input:-$default_value}
+        fi
+
+        if grep -q "^${var_name}=" "${env_file}"; then
+            sed -i "s/^${var_name}=\s+/${var_name}=${user_input}/g" "${env_file}"
+        else
+            # If variable not found, append it to the env file
+            echo "${var_name}=${default_value}" >> "${env_file}"
+        fi
+
+        log "info" "Added environment variable '${var_name}' with default value to ${env_file}" "+"
+    fi
+}
+
 # Function: prepare_general_environment
 # Description: Prepares system environment, creates directories, and sets up configuration
 # Parameters: None
@@ -325,31 +359,12 @@ download_service_files () {
 prepare_general_environment () {
     log "info" "Preparing general environment..." "+"
 
-    if [[ "$AUTO_YES" == "true" ]]; then
-        # Use default domains in auto mode
-        SSPSERVER_API_DOMAIN=${SSPSERVER_API_DOMAIN:-apidemo.sspserver.org}
-        SSPSERVER_UI_DOMAIN=${SSPSERVER_UI_DOMAIN:-demo.sspserver.org}
-        SSPSERVER_DOMAIN=${SSPSERVER_DOMAIN:-sspdemo.sspserver.org}
-        log "info" "Using default domains in auto-confirmation mode" "+"
-    else
-        # Interactive configuration mode
-        log "info" "Interactive configuration mode" "+"
-        
-        ## Replace domains in .init.env
-        read -p "Enter the domain for the SSP API server [apidemo.sspserver.org]: " SSPSERVER_API_DOMAIN < /dev/tty
-        SSPSERVER_API_DOMAIN=${SSPSERVER_API_DOMAIN:-apidemo.sspserver.org}
-
-        read -p "Enter the domain for the SSP UI server [demo.sspserver.org]: " SSPSERVER_UI_DOMAIN < /dev/tty
-        SSPSERVER_UI_DOMAIN=${SSPSERVER_UI_DOMAIN:-demo.sspserver.org}
-
-        read -p "Enter the domain for the SSP server [sspdemo.sspserver.org]: " SSPSERVER_DOMAIN < /dev/tty
-        SSPSERVER_DOMAIN=${SSPSERVER_DOMAIN:-sspdemo.sspserver.org}
-    fi
-
-    # Apply domain configurations to .init.env
-    sed -i "s/apidemo.sspserver.org/${SSPSERVER_API_DOMAIN}/g" ${INSTALL_DIR}/.init.env
-    sed -i "s/demo.sspserver.org/${SSPSERVER_UI_DOMAIN}/g" ${INSTALL_DIR}/.init.env
-    sed -i "s/sspdemo.sspserver.org/${SSPSERVER_DOMAIN}/g" ${INSTALL_DIR}/.init.env
+    setup_env_file_variable "${INSTALL_DIR}/.init.env" "SSPSERVER_API_DOMAIN" \
+        "apidemo.sspserver.org" "Enter the domain for the SSP API server" "$AUTO_YES"
+    setup_env_file_variable "${INSTALL_DIR}/.init.env" "SSPSERVER_UI_DOMAIN" \
+        "demo.sspserver.org" "Enter the domain for the SSP UI server" "$AUTO_YES"
+    setup_env_file_variable "${INSTALL_DIR}/.init.env" "SSPSERVER_DOMAIN" \
+        "sspdemo.sspserver.org" "Enter the domain for the SSP server" "$AUTO_YES"
     
     log "ok" "Environment configured: API=${SSPSERVER_API_DOMAIN}, UI=${SSPSERVER_UI_DOMAIN}, SSP=${SSPSERVER_DOMAIN}" "+"
 }
@@ -388,6 +403,10 @@ prepare_sspservice () {
 ###############################################################################
 ## Standalone installation script for SSP Server on Ubuntu
 ###############################################################################
+
+# Log startup information
+log "info" "Starting SSP Server installation for Ubuntu" "+"
+log "info" "Auto-confirmation mode: ${AUTO_YES}" "+"
 
 # 1. Install dependencies
 install_dependencies
