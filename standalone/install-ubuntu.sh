@@ -1,11 +1,43 @@
 #!/usr/bin/env bash
 
+###############################################################################
+# SSP Server Ubuntu Installation Script
+# 
+# Description: Automated installation script for SSP Server on Ubuntu/Debian systems
+# Author: SSP Server Team
+# Version: 1.0
+# Platform: Ubuntu/Debian with systemd
+#
+# This script performs the following operations:
+# - Installs system dependencies (curl, unzip, jq, git, build-essential)
+# - Sets up systemd service manager for process management
+# - Installs Docker CE and Docker Compose for containerization
+# - Downloads and configures SSP Server service files
+# - Configures domain settings through interactive prompts
+# - Installs and starts SSP Server as a systemd service
+#
+# Requirements:
+# - Ubuntu/Debian Linux distribution
+# - Root or sudo privileges
+# - Internet connectivity for package downloads
+# - systemd service manager
+#
+# Usage:
+#   sudo ./ubuntu.sh
+#
+# Log files:
+#   /var/log/sspserver/sspserver_1click_standalone.log
+#
+# Service management:
+#   systemctl status sspserver
+#   systemctl start|stop|restart sspserver
+#   journalctl -u sspserver -f
+###############################################################################
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
-OK="${GREEN}OK${NC}"
-ERROR="${RED}ERROR${NC}"
 
 LOG_DIR="/var/log/sspserver"
 LOG_FILE="${LOG_DIR}/sspserver_1click_standalone.log"
@@ -17,12 +49,75 @@ OS_NAME="ubuntu"
 DOWNLOAD_STANDALONE_URI="https://github.com/sspserver/deploy/raw/refs/heads/build/standalone/ubuntu.zip"
 
 mkdir -p "${LOG_DIR}"
+mkdir -p "${INSTALL_DIR}"
 
+# Auto-confirmation mode (skip interactive prompts)
+AUTO_YES=${AUTO_YES:-false}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -y|--yes)
+            AUTO_YES=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [-y|--yes] [-h|--help]"
+            echo "  -y, --yes    Auto-confirmation mode (skip interactive prompts)"
+            echo "  -h, --help   Show this help message"
+            exit 0
+            ;;
+        *)
+            log "error" "Unknown option: $1" "+"
+            echo "Use -h or --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+# Log startup information
+log "info" "Starting SSP Server installation for Ubuntu/Debian" "+"
+log "info" "Auto-confirmation mode: ${AUTO_YES}" "+"
+
+# Function: log
+# Description: Universal logging function with message type support
+# Parameters:
+#   $1 - message type: "error", "info", "ok"
+#   $2 - log message string
+#   $3 - optional "+" flag to also display message on stdout
+# Returns: None
+# Example: log "error" "Installation failed" "+"
+#          log "info" "Starting installation"
+#          log "ok" "Installation completed" "+"
 log () {
+    local message_type="$1"
+    local message="$2"
+    local display_flag="$3"
+    
+    # Format message with type prefix
+    local formatted_message=""
+    case "$message_type" in
+        "error")
+            formatted_message="${RED}[ERROR]${NC} $message"
+            ;;
+        "info")
+            formatted_message="${BLUE}[INFO]${NC} $message"
+            ;;
+        "ok")
+            formatted_message="${GREEN}[OK]${NC} $message"
+            ;;
+        *)
+            formatted_message="[UNKNOWN] $message"
+            ;;
+    esac
+    
+    # Write to log file
     echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" >> "${LOG_FILE}"
-    echo "$(date '+%d-%m-%Y %H:%M:%S') $1" >> "${LOG_FILE}"
-    if [ "$2" == "+" ]; then
-        echo -e "$(date '+%d-%m-%Y %H:%M:%S') $1"
+    echo "$(date '+%d-%m-%Y %H:%M:%S') $formatted_message" >> "${LOG_FILE}"
+    
+    # Display on stdout if requested
+    if [ "$display_flag" == "+" ]; then
+        echo -e "$(date '+%d-%m-%Y %H:%M:%S') $formatted_message"
     fi
 }
 
@@ -37,20 +132,26 @@ log () {
 # * lsb-release
 # * systemd
 
+# Function: install_dependencies
+# Description: Installs required system dependencies for SSP Server on Ubuntu
+# Parameters: None
+# Returns: None
+# Dependencies: apt-get package manager, system utilities
+# Note: Installs curl, unzip, jq, git, build-essential, and other required packages
 install_dependencies () {
-    log "${BLUE}Installing dependencies...${NC}" "+"
+    log "info" "Installing dependencies..." "+"
 
     # Check if apt-get is available
     if ! command -v apt-get &> /dev/null; then
-        log "${RED}apt-get not found, please install it first.${NC}" "+"
+        log "error" "apt-get not found, please install it first." "+"
         exit 1
     fi
 
     # Update package list and install dependencies
-    log "Updating package list..." "+"
+    log "info" "Updating package list..." "+"
     apt-get -y update >> "${LOG_FILE}" 2>&1
 
-    log "Installing dependencies..." "+"
+    log "info" "Installing dependencies..." "+"
     apt-get -y install \
         curl \
         unzip \
@@ -62,47 +163,59 @@ install_dependencies () {
         lsb-release >> "${LOG_FILE}" 2>&1
 }
 
+# Function: install_systemd_dependency
+# Description: Installs and configures systemd service manager for Ubuntu
+# Parameters: None
+# Returns: None
+# Dependencies: apt-get package manager, systemctl command
+# Note: Ensures systemd is installed, running, and enabled for boot
 install_systemd_dependency () {
-    log "${BLUE}Installing systemd dependency...${NC}" "+"
+    log "info" "Installing systemd dependency..." "+"
     {
         apt-get -y install systemd
     } >> "${LOG_FILE}" 2>&1
     if [[ $? -ne 0 ]]; then
-        log "Failed to install systemd dependency" "-"
+        log "error" "Failed to install systemd dependency" "+"
         exit 1
     else
-        log "Systemd dependency installed successfully" "+"
+        log "ok" "Systemd dependency installed successfully" "+"
     fi
     # Check if systemd is running
     if ! systemctl is-active --quiet systemd; then
-        log "Systemd is not running, starting it..." "+"
+        log "info" "Systemd is not running, starting it..." "+"
         systemctl start systemd
         if [[ $? -ne 0 ]]; then
-            log "Failed to start systemd" "-"
+            log "error" "Failed to start systemd" "+"
             exit 1
         else
-            log "Systemd started successfully" "+"
+            log "ok" "Systemd started successfully" "+"
         fi
     else
-        log "Systemd is already running" "+"
+        log "ok" "Systemd is already running" "+"
     fi
     # Check if systemd is enabled to start on boot
     if ! systemctl is-enabled --quiet systemd; then
-        log "Enabling systemd to start on boot..." "+"
+        log "info" "Enabling systemd to start on boot..." "+"
         systemctl enable systemd
         if [[ $? -ne 0 ]]; then
-            log "Failed to enable systemd" "-"
+            log "error" "Failed to enable systemd" "+"
             exit 1
         else
-            log "Systemd enabled successfully" "+"
+            log "ok" "Systemd enabled successfully" "+"
         fi
     else
-        log "Systemd is already enabled to start on boot" "+"
+        log "ok" "Systemd is already enabled to start on boot" "+"
     fi
 }
 
+# Function: install_docker
+# Description: Installs Docker Engine and Docker Compose on Ubuntu
+# Parameters: None
+# Returns: None
+# Dependencies: apt-get, curl, systemctl, Ubuntu package repositories
+# Note: Sets up Docker repository, installs Docker CE, configures logging and journald
 install_docker () {
-    log "${BLUE}Installing docker...${NC}" "+"
+    log "info" "Installing docker..." "+"
     if ! [[ -f /etc/apt/keyrings/docker.gpg ]]; then
         {
             mkdir -p /etc/apt/keyrings
@@ -115,7 +228,7 @@ install_docker () {
     fi
     # If docker command not found, install compose
     if ! command -v docker &> /dev/null; then
-        log "Installing docker cli..." "+"
+        log "info" "Installing docker cli..." "+"
         {
             apt-get -y update
             apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
@@ -123,27 +236,27 @@ install_docker () {
     fi
     # If docker-switch command not found, install compose-switch
     if ! [[ -f /usr/local/bin/compose-switch ]]; then
-        log "Installing docker-compose-switch..." "+"
+        log "info" "Installing docker-compose-switch..." "+"
         {
             curl -fL https://github.com/docker/compose-switch/releases/latest/download/docker-compose-linux-amd64 -o /usr/local/bin/compose-switch
             chmod +x /usr/local/bin/compose-switch
             update-alternatives --install /usr/local/bin/docker-compose docker-compose /usr/local/bin/compose-switch 99
         } >> "${LOG_FILE}" 2>&1
     fi
-    #wait for the file to be created
-    if [ ! -f  /etc/docker/daemon.json ]; then
-        touch /etc/docker/daemon.json && cat << EOF >> /etc/docker/daemon.json
-    {
-    "log-driver": "journald"
-    }
-EOF
-    elif grep -qF '"log-driver": "journald"' /etc/docker/daemon.json; then
-        :
-    else cat << EOF >> /etc/docker/daemon.json
-    {
-    "log-driver": "journald"
-    }
-EOF
+    # Configure Docker daemon.json for journald logging
+    mkdir -p /etc/docker
+    if [ ! -f /etc/docker/daemon.json ]; then
+        echo '{"log-driver": "journald"}' > /etc/docker/daemon.json
+    elif ! grep -qF '"log-driver": "journald"' /etc/docker/daemon.json; then
+        # Update existing daemon.json to include journald logging
+        if [ -s /etc/docker/daemon.json ]; then
+            # File exists and is not empty - need to merge JSON
+            tmp_file=$(mktemp)
+            jq '. + {"log-driver": "journald"}' /etc/docker/daemon.json > "$tmp_file" && mv "$tmp_file" /etc/docker/daemon.json
+        else
+            # File exists but is empty
+            echo '{"log-driver": "journald"}' > /etc/docker/daemon.json
+        fi
     fi
     #journald max file restriction
     sed -i '/SystemMaxUse=.*/d' /etc/systemd/journald.conf
@@ -158,6 +271,13 @@ EOF
     done
 }
 
+# Function: pass_generator
+# Description: Generates random passwords for database and service authentication
+# Parameters: 
+#   $1 - password length (number of characters)
+# Returns: Prints generated password to stdout
+# Dependencies: RANDOM variable for random generation
+# Note: Uses RANDOM for password generation, alphanumeric characters only
 pass_generator () {
     symbols="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
     lenght="$1"
@@ -171,44 +291,77 @@ pass_generator () {
     echo "${password}"
 }
 
+# Function: download_service_files
+# Description: Downloads SSP Server service configuration files and Docker Compose setup
+# Parameters: None
+# Returns: None
+# Dependencies: curl, unzip, internet connectivity, write permissions to INSTALL_DIR
+# Note: Downloads from GitHub repository and extracts to installation directory
 download_service_files () {
-    log "${BLUE}Downloading service files...${NC}" "+"
+    log "info" "Downloading service files..." "+"
     curl -sSL "${DOWNLOAD_STANDALONE_URI}" -o "${INSTALL_DIR}/sspserver.zip"
     if [[ $? -ne 0 ]]; then
-        log "Failed to download service files" "+"
+        log "error" "Failed to download service files" "+"
         exit 1
     fi
 
-    log "Unzipping service files..." "+"
+    log "info" "Unzipping service files..." "+"
     unzip -o "${INSTALL_DIR}/sspserver.zip" -d "${INSTALL_DIR}" >> "${LOG_FILE}" 2>&1
     if [[ $? -ne 0 ]]; then
-        log "Failed to unzip service files" "+"
+        log "error" "Failed to unzip service files" "+"
         exit 1
     fi
 
-    log "Service files downloaded and unzipped successfully" "+"
+    log "ok" "Service files downloaded and unzipped successfully" "+"
     rm "${INSTALL_DIR}/sspserver.zip"
 }
 
+# Function: prepare_general_environment
+# Description: Prepares system environment, creates directories, and sets up configuration
+# Parameters: None
+# Returns: None
+# Dependencies: user input, sed command, write permissions to INSTALL_DIR
+# Note: Configures domain settings in .init.env file through interactive prompts
 prepare_general_environment () {
-    log "${BLUE}Preparing general environment...${NC}" "+"
+    log "info" "Preparing general environment..." "+"
 
-    ## Replace domains in .init.env
-    read -p "Enter the domain for the SSP API server [apidemo.sspserver.org]: " SSPSERVER_API_DOMAIN < /dev/tty
-    SSPSERVER_API_DOMAIN=${SSPSERVER_API_DOMAIN:-apidemo.sspserver.org}
+    if [[ "$AUTO_YES" == "true" ]]; then
+        # Use default domains in auto mode
+        SSPSERVER_API_DOMAIN=${SSPSERVER_API_DOMAIN:-apidemo.sspserver.org}
+        SSPSERVER_UI_DOMAIN=${SSPSERVER_UI_DOMAIN:-demo.sspserver.org}
+        SSPSERVER_DOMAIN=${SSPSERVER_DOMAIN:-sspdemo.sspserver.org}
+        log "info" "Using default domains in auto-confirmation mode" "+"
+    else
+        # Interactive configuration mode
+        log "info" "Interactive configuration mode" "+"
+        
+        ## Replace domains in .init.env
+        read -p "Enter the domain for the SSP API server [apidemo.sspserver.org]: " SSPSERVER_API_DOMAIN < /dev/tty
+        SSPSERVER_API_DOMAIN=${SSPSERVER_API_DOMAIN:-apidemo.sspserver.org}
+
+        read -p "Enter the domain for the SSP UI server [demo.sspserver.org]: " SSPSERVER_UI_DOMAIN < /dev/tty
+        SSPSERVER_UI_DOMAIN=${SSPSERVER_UI_DOMAIN:-demo.sspserver.org}
+
+        read -p "Enter the domain for the SSP server [sspdemo.sspserver.org]: " SSPSERVER_DOMAIN < /dev/tty
+        SSPSERVER_DOMAIN=${SSPSERVER_DOMAIN:-sspdemo.sspserver.org}
+    fi
+
+    # Apply domain configurations to .init.env
     sed -i "s/apidemo.sspserver.org/${SSPSERVER_API_DOMAIN}/g" ${INSTALL_DIR}/.init.env
-
-    read -p "Enter the domain for the SSP UI server [demo.sspserver.org]: " SSPSERVER_UI_DOMAIN < /dev/tty
-    SSPSERVER_UI_DOMAIN=${SSPSERVER_UI_DOMAIN:-demo.sspserver.org}
     sed -i "s/demo.sspserver.org/${SSPSERVER_UI_DOMAIN}/g" ${INSTALL_DIR}/.init.env
-
-    read -p "Enter the domain for the SSP server [sspdemo.sspserver.org]: " SSPSERVER_DOMAIN < /dev/tty
-    SSPSERVER_DOMAIN=${SSPSERVER_DOMAIN:-sspdemo.sspserver.org}
     sed -i "s/sspdemo.sspserver.org/${SSPSERVER_DOMAIN}/g" ${INSTALL_DIR}/.init.env
+    
+    log "ok" "Environment configured: API=${SSPSERVER_API_DOMAIN}, UI=${SSPSERVER_UI_DOMAIN}, SSP=${SSPSERVER_DOMAIN}" "+"
 }
 
+# Function: prepare_sspservice
+# Description: Prepares and configures SSP Server service for startup with systemd
+# Parameters: None
+# Returns: None
+# Dependencies: systemctl, service files, systemd service directory
+# Note: Installs systemd service, enables auto-start, and manages service lifecycle
 prepare_sspservice () {
-    log "${BLUE}Preparing SSP service...${NC}" "+"
+    log "info" "Preparing SSP service..." "+"
     cp ${INSTALL_DIR}/sspserver/sspserver.service ${SYSTEMD_SERVICE_DIR}/sspserver.service
 
     chmod 644 ${SYSTEMD_SERVICE_DIR}/sspserver.service
@@ -216,19 +369,19 @@ prepare_sspservice () {
     systemctl daemon-reload
     systemctl enable sspserver.service
     # Stop and start the service to apply changes
-    log "Restarting SSP service..." "+"
+    log "info" "Restarting SSP service..." "+"
     if systemctl is-active --quiet sspserver.service; then
         systemctl stop sspserver.service
-        log "SSP service is already running, stopping it..." "+"
+        log "info" "SSP service is already running, stopping it..." "+"
     else
-        log "SSP service is not running, starting it for the first time..." "+"
+        log "info" "SSP service is not running, starting it for the first time..." "+"
     fi
     systemctl start sspserver.service
     if [[ $? -ne 0 ]]; then
-        log "Failed to start SSP service" "+"
+        log "error" "Failed to start SSP service" "+"
         exit 1
     else
-        log "SSP service started successfully" "+"
+        log "ok" "SSP service started successfully" "+"
     fi
 }
 
@@ -240,23 +393,23 @@ prepare_sspservice () {
 install_dependencies
 
 # 2. Install systemd dependency if not installed
-log "${BLUE}Checking for systemd...${NC}" "+"
+log "info" "Checking for systemd..." "+"
 if ! command -v systemctl &> /dev/null
 then
-    log "${RED}Systemd not found, installing...${NC}" "+"
+    log "info" "Systemd not found, installing..." "+"
     install_systemd_dependency
 else
-    log "${GREEN}Systemd is already installed${NC}" "+"
+    log "ok" "Systemd is already installed" "+"
 fi
 
 # 3. Install docker if not installed
-log "${BLUE}Checking for Docker...${NC}" "+"
+log "info" "Checking for Docker..." "+"
 if ! command -v docker &> /dev/null
 then
-    log "${RED}Docker not found, installing...${NC}" "+"
+    log "info" "Docker not found, installing..." "+"
     install_docker
 else
-    log "${GREEN}Docker is already installed${NC}" "+"
+    log "ok" "Docker is already installed" "+"
 fi
 
 # 4. Download and prepare service files
