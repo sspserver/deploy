@@ -40,13 +40,11 @@
 #          the source repository before execution.
 #############################################################################
 
-# Color codes for terminal output formatting
+# Color definitions for console output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-OK="${GREEN}OK${NC}"
-ERROR="${RED}ERROR${NC}"
+NC='\033[0m'  # No Color
 
 # Installation directories and files
 LOG_DIR="/var/log/sspserver"                            # Directory for installation logs
@@ -90,11 +88,6 @@ SUPPORTED_OS_LIST=("centos" "debian" "ubuntu" "darwin")
 #############################################################################
 # Process command line arguments for automated installation options
 
-# Temporary error function for parameter processing (full version defined later)
-print_error_temp () {
-    echo -e "\033[0;31mERROR\033[0m: $1" >&2
-}
-
 # Default values
 AUTO_YES=false
 
@@ -119,7 +112,7 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            print_error_temp "Unknown option: $1"
+            log "error" "Unknown option: $1" "+"
             echo "Use $0 --help for usage information"
             exit 1
             ;;
@@ -132,53 +125,45 @@ done
 mkdir -p "${LOG_DIR}"
 
 # Function: log
-# Description: Writes log messages to file and optionally to stdout with timestamp
-# Parameters: 
-#   $1 - log message string
-#   $2 - optional "+" flag to also display message on stdout
+# Description: Universal logging function with message type support
+# Parameters:
+#   $1 - message type: "error", "info", "ok"
+#   $2 - log message string
+#   $3 - optional "+" flag to also display message on stdout
 # Returns: None
-# Example: log "Installation started" "+"
+# Example: log "error" "Installation failed" "+"
+#          log "info" "Starting installation"
+#          log "ok" "Installation completed" "+"
 log () {
+    local message_type="$1"
+    local message="$2"
+    local display_flag="$3"
+    
+    # Format message with type prefix
+    local formatted_message=""
+    case "$message_type" in
+        "error")
+            formatted_message="${RED}[ERROR]${NC} $message"
+            ;;
+        "info")
+            formatted_message="${BLUE}[INFO]${NC} $message"
+            ;;
+        "ok")
+            formatted_message="${GREEN}[OK]${NC} $message"
+            ;;
+        *)
+            formatted_message="[UNKNOWN] $message"
+            ;;
+    esac
+    
+    # Write to log file
     echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" >> "${LOG_FILE}"
-    echo "$(date '+%d-%m-%Y %H:%M:%S') $1" >> "${LOG_FILE}"
-    if [ "$2" == "+" ]; then
-        echo -e "$(date '+%d-%m-%Y %H:%M:%S') $1"
+    echo "$(date '+%d-%m-%Y %H:%M:%S') $formatted_message" >> "${LOG_FILE}"
+    
+    # Display on stdout if requested
+    if [ "$display_flag" == "+" ]; then
+        echo -e "$(date '+%d-%m-%Y %H:%M:%S') $formatted_message"
     fi
-}
-
-#############################################################################
-# MESSAGE OUTPUT FUNCTIONS
-#############################################################################
-# Standardized functions for consistent message formatting and output
-
-# Function: print_error
-# Description: Displays error messages in red color with ERROR prefix
-# Parameters:
-#   $1 - error message string
-# Returns: Prints formatted error message to stderr
-# Example: print_error "Failed to download file"
-print_error () {
-    echo -e "${ERROR}: $1" >&2
-}
-
-# Function: print_info  
-# Description: Displays informational messages in blue color
-# Parameters:
-#   $1 - info message string
-# Returns: Prints formatted info message to stdout
-# Example: print_info "Checking system requirements..."
-print_info () {
-    echo -e "${BLUE}$1${NC}"
-}
-
-# Function: print_success
-# Description: Displays success messages in green color
-# Parameters:
-#   $1 - success message string
-# Returns: Prints formatted success message to stdout
-# Example: print_success "Installation completed successfully"
-print_success () {
-    echo -e "${GREEN}$1${NC}"
 }
 
 #############################################################################
@@ -276,9 +261,9 @@ get_os_name () {
 check_os () {
     os_name=$(get_os_name)
     if [[ " ${SUPPORTED_OS_LIST[@]} " =~ " ${os_name} " ]]; then
-        log "Check OS [${os_name}] - ${OK}" "+"
+        log "ok" "Check OS [${os_name}]" "+"
     else 
-        print_error "Unsupported OS ${os_name}. Supported: ${SUPPORTED_OS_LIST[*]}. Exiting..."
+        log "error" "Unsupported OS ${os_name}. Supported: ${SUPPORTED_OS_LIST[*]}. Exiting..." "+"
         exit 0
     fi
 }
@@ -292,9 +277,9 @@ check_os () {
 check_architecture () {
     cpu_type=$(uname -m)
     if [[ " ${SUPPORTED_ARCH[@]} " =~ " ${cpu_type} " ]]; then
-        log "Check architecture [${cpu_type}] - ${OK}" "+"
+        log "ok" "Check architecture [${cpu_type}]" "+"
     else 
-        print_error "SSPServer supports only ${SUPPORTED_ARCH[*]} CPU architectures, current is '${cpu_type}'. Exiting..."
+        log "error" "SSPServer supports only ${SUPPORTED_ARCH[*]} CPU architectures, current is '${cpu_type}'. Exiting..." "+"
         exit 0
     fi
 }
@@ -316,10 +301,10 @@ check_cpu () {
     fi
 
     if [[ -z "$cpu_threads" ]] || [[ "$cpu_threads" -lt "$MIN_CPU_CORES" ]]; then
-        print_error "SSPServer requires ${MIN_CPU_CORES} or more CPU threads to operate. Current: ${cpu_threads:-unknown}. Exiting..."
+        log "error" "SSPServer requires ${MIN_CPU_CORES} or more CPU threads to operate. Current: ${cpu_threads:-unknown}. Exiting..." "+"
         exit 0
     else 
-        log "Check CPU [${cpu_threads}] - ${OK}" "+"
+        log "ok" "Check CPU [${cpu_threads}]" "+"
     fi
 }
 
@@ -343,11 +328,11 @@ check_ram () {
     if [[ -z "$ram_total" ]] || [[ "$ram_total" -lt "$MIN_RAM_KB" ]]; then
         ram_total_readable=$(convert_kilobytes ${ram_total:-0})
         min_ram_readable=$(convert_kilobytes $MIN_RAM_KB)
-        print_error "SSPServer requires ${min_ram_readable} of RAM to operate. Current: ${ram_total_readable}. Exiting..."
+        log "error" "SSPServer requires ${min_ram_readable} of RAM to operate. Current: ${ram_total_readable}. Exiting..." "+"
         exit 0
     else
         ram_size=$(convert_kilobytes $ram_total)
-        log "Check RAM [${ram_size}] - ${OK}" "+"
+        log "ok" "Check RAM [${ram_size}]" "+"
     fi
 }
 
@@ -370,11 +355,11 @@ check_storage () {
     if [[ -z "$free_storage" ]] || [[ "$free_storage" -lt "$MIN_STORAGE_KB" ]]; then
         free_storage_readable=$(convert_kilobytes ${free_storage:-0})
         min_storage_readable=$(convert_kilobytes $MIN_STORAGE_KB)
-        print_error "SSPServer requires ${min_storage_readable} of free disk storage in ${STORAGE_CHECK_PATH} to operate. Current: ${free_storage_readable}. Exiting..."
+        log "error" "SSPServer requires ${min_storage_readable} of free disk storage in ${STORAGE_CHECK_PATH} to operate. Current: ${free_storage_readable}. Exiting..." "+"
         exit 0
     else
         storage_size=$(convert_kilobytes $free_storage)
-        log "Free storage check [${storage_size}] in ${STORAGE_CHECK_PATH} - ${OK}" "+"
+        log "ok" "Free storage check [${storage_size}] in ${STORAGE_CHECK_PATH}" "+"
     fi
 }
 
@@ -384,29 +369,29 @@ check_storage () {
 # Description: Downloads and executes OS-specific installation script from remote repository with error handling
 # Parameters: None
 # Returns: Executes the downloaded script, inherits its exit code
-# Dependencies: get_os_name function, curl, chmod, bash, print_info and print_error functions
+# Dependencies: get_os_name function, curl, chmod, bash, log function
 # Remote URL: https://raw.githubusercontent.com/sspserver/deploy/refs/heads/build/standalone/install-{os-name}.sh
 # Note: Now includes download validation and error handling for improved reliability
 run_install_script () {
     os_name=$(get_os_name)
     URL=$(echo "${RUN_INSTALLER_SCRIPT_URI}" | sed "s/{{os-name}}/${os_name}/g")
 
-    print_info "Downloading OS-specific installer for ${os_name}..."
-    log "Downloading installer from: ${URL}" "+"
+    log "info" "Downloading OS-specific installer for ${os_name}..." "+"
+    log "info" "Downloading installer from: ${URL}" "+"
 
     if ! curl -sSL "${URL}" -o "${TEMP_INSTALL_SCRIPT}"; then
-        print_error "Failed to download installation script from ${URL}"
-        log "Download failed for URL: ${URL}" "+"
+        log "error" "Failed to download installation script from ${URL}" "+"
+        log "error" "Download failed for URL: ${URL}" "+"
         exit 1
     fi
 
     if [[ ! -f "${TEMP_INSTALL_SCRIPT}" ]] || [[ ! -s "${TEMP_INSTALL_SCRIPT}" ]]; then
-        print_error "Downloaded script is empty or missing"
-        log "Script validation failed: ${TEMP_INSTALL_SCRIPT}" "+"
+        log "error" "Downloaded script is empty or missing" "+"
+        log "error" "Script validation failed: ${TEMP_INSTALL_SCRIPT}" "+"
         exit 1
     fi
 
-    log "Script downloaded successfully, executing..." "+"
+    log "ok" "Script downloaded successfully, executing..." "+"
     chmod +x "${TEMP_INSTALL_SCRIPT}"
 
     # Pass the -y flag to the downloaded script if auto-confirmation is enabled
@@ -422,7 +407,7 @@ run_install_script () {
     # Clean up temporary file
     if [[ -f "${TEMP_INSTALL_SCRIPT}" ]]; then
         rm -f "${TEMP_INSTALL_SCRIPT}"
-        log "Temporary installer script cleaned up: ${TEMP_INSTALL_SCRIPT}" "+"
+        log "info" "Temporary installer script cleaned up: ${TEMP_INSTALL_SCRIPT}" "+"
     fi
 
     # Exit with the same code as the installer script
@@ -443,52 +428,52 @@ run_install_script () {
 #############################################################################
 
 # 1. Print OS information
-print_info "System Information:"
+log "info" "System Information:" "+"
 print_system_info
 
 # 2. Check OS
-print_info "Checking OS..."
+log "info" "Checking OS..." "+"
 check_os
 
 # 3. Check architecture
-print_info "Checking architecture..."
+log "info" "Checking architecture..." "+"
 check_architecture
 
 # 4. Check CPU
-print_info "Checking CPU..."
+log "info" "Checking CPU..." "+"
 check_cpu
 
 # 5. Check RAM
-print_info "Checking RAM..."
+log "info" "Checking RAM..." "+"
 check_ram
 
 # 6. Check storage
-print_info "Checking storage..."
+log "info" "Checking storage..." "+"
 check_storage
 
-print_success "All checks passed. Proceeding with the installation..."
+log "ok" "All checks passed. Proceeding with the installation..." "+"
 echo "==============================================="
 
 # Ask user confirmation before proceeding
 echo ""
 if [[ "$AUTO_YES" == "true" ]]; then
-    print_info "Auto-confirmation mode enabled (-y flag). Proceeding with installation automatically."
-    log "Installation proceeding automatically due to -y flag" "+"
+    log "info" "Auto-confirmation mode enabled (-y flag). Proceeding with installation automatically." "+"
+    log "info" "Installation proceeding automatically due to -y flag" "+"
 else
-    print_info "Ready to download and execute OS-specific installation script."
-    print_info "This will install SSP Server and all required dependencies."
+    log "info" "Ready to download and execute OS-specific installation script." "+"
+    log "info" "This will install SSP Server and all required dependencies." "+"
     echo ""
     read -p "Do you want to continue with the installation? [y/N]: " -n 1 -r
     echo ""
 
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        print_info "Installation cancelled by user."
-        log "Installation cancelled by user input" "+"
+        log "info" "Installation cancelled by user." "+"
+        log "info" "Installation cancelled by user input" "+"
         exit 0
     fi
 fi
 
-print_info "Starting installation..."
+log "info" "Starting installation..." "+"
 
 # 7. Run the install script
 run_install_script

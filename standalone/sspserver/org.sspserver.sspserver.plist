@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Service identification -->
+    <key>Label</key>
+    <string>org.sspserver.sspserver</string>
+    
+    <!-- Service description -->
+    <key>ServiceDescription</key>
+    <string>SSP Server - Supply Side Platform Server</string>
+    
+    <!-- Working directory -->
+    <key>WorkingDirectory</key>
+    <string>/opt/sspserver</string>
+    
+    <!-- Program and arguments -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/docker</string>
+        <string>compose</string>
+        <string>-f</string>
+        <string>/opt/sspserver/docker-compose.yml</string>
+        <string>up</string>
+        <string>proxy</string>
+        <string>--detach</string>
+    </array>
+    
+    <!-- Environment variables -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+    
+    <!-- Auto-start configuration -->
+    <key>RunAtLoad</key>
+    <true/>
+    
+    <!-- Keep service alive -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    
+    <!-- Restart settings -->
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
+    
+    <!-- Standard output and error logging -->
+    <key>StandardOutPath</key>
+    <string>/var/log/sspserver/sspserver.out.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/var/log/sspserver/sspserver.err.log</string>
+    
+    <!-- Process settings -->
+    <key>ProcessType</key>
+    <string>Background</string>
+    
+    <!-- User context -->
+    <key>UserName</key>
+    <string>root</string>
+    
+    <!-- Session type -->
+    <key>SessionCreate</key>
+    <true/>
+</dict>
+</plist>
