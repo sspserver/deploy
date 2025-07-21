@@ -301,8 +301,8 @@ download_service_files () {
         exit 1
     fi
 
-    log "info" "Unzipping service files..." "+"
-    unzip -o "${INSTALL_DIR}/sspserver.zip" -d "${INSTALL_DIR}" >> "${LOG_FILE}" 2>&1
+    log "info" "Unzipping service files (without overwriting existing files)..." "+"
+    unzip -n "${INSTALL_DIR}/sspserver.zip" -d "${INSTALL_DIR}" >> "${LOG_FILE}" 2>&1
     if [[ $? -ne 0 ]]; then
         log "error" "Failed to unzip service files" "+"
         exit 1
@@ -359,14 +359,15 @@ setup_env_file_variable () {
 prepare_general_environment () {
     log "info" "Preparing general environment..." "+"
 
-    setup_env_file_variable "${INSTALL_DIR}/.init.env" "SSPSERVER_API_DOMAIN" \
-        "apidemo.sspserver.org" "Enter the domain for the SSP API server" "$AUTO_YES"
-    setup_env_file_variable "${INSTALL_DIR}/.init.env" "SSPSERVER_UI_DOMAIN" \
-        "demo.sspserver.org" "Enter the domain for the SSP UI server" "$AUTO_YES"
-    setup_env_file_variable "${INSTALL_DIR}/.init.env" "SSPSERVER_DOMAIN" \
-        "sspdemo.sspserver.org" "Enter the domain for the SSP server" "$AUTO_YES"
-    
-    log "ok" "Environment configured: API=${SSPSERVER_API_DOMAIN}, UI=${SSPSERVER_UI_DOMAIN}, SSP=${SSPSERVER_DOMAIN}" "+"
+    setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        "SSPSERVER_API_DOMAIN" "apidemo.sspserver.org" \
+        "Enter the domain for the SSP API server" "$AUTO_YES"
+    setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        "SSPSERVER_UI_DOMAIN" "demo.sspserver.org" \
+        "Enter the domain for the SSP UI server" "$AUTO_YES"
+    setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        "SSPSERVER_DOMAIN" "sspdemo.sspserver.org" \
+        "Enter the domain for the SSP server" "$AUTO_YES"
 }
 
 # Function: prepare_sspservice
