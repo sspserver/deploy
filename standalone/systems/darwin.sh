@@ -412,92 +412,109 @@ download_service_files () {
     log "ok" "Service files download and extraction completed" "+"
 }
 
+# Function: setup_env_file_variable
+# Description: Sets up environment variables in configuration files with interactive or auto mode
+# Parameters:
+#   $1 - env file path
+#   $2 - variable name  
+#   $3 - default variable value
+#   $4 - prompt message
+#   $5 - auto-confirmation mode (optional)
+# Returns: None
+# Dependencies: grep, sed (BSD version), read command, file write permissions
+# Note: macOS uses BSD sed which requires different syntax than GNU sed
+setup_env_file_variable () {
+    local env_file="$1"
+    local var_name="$2"
+    local default_value="$3"
+    local prompt_message="$4"
+    local auto_confirm="$5"
+
+    # Check if variable is already set in env file (non-empty value)
+    if grep -q "^${var_name}=[^[:space:]]*[[:graph:]]" "${env_file}" 2>/dev/null; then
+        log "info" "Environment variable '${var_name}' is already set in ${env_file}" "+"
+    else
+        # Prompt user for value
+        if [[ "$auto_confirm" == "true" ]]; then
+            # Use default value in auto mode
+            user_input=${default_value}
+            log "info" "Using default value for '${var_name}': ${user_input}" "+"
+        else
+            read -p "${prompt_message} [${default_value}]: " user_input < /dev/tty
+            user_input=${user_input:-$default_value}
+        fi
+
+        # macOS BSD sed requires empty string after -i for in-place editing
+        if grep -q "^${var_name}=" "${env_file}" 2>/dev/null; then
+            # Variable exists but is empty, update it
+            sed -i '' "s/^${var_name}=.*/${var_name}=${user_input}/g" "${env_file}"
+        else
+            # Variable not found, append it to the env file
+            echo "${var_name}=${user_input}" >> "${env_file}"
+        fi
+
+        log "info" "Set environment variable '${var_name}' to '${user_input}' in ${env_file}" "+"
+    fi
+}
+
 # Function: prepare_general_environment
 # Description: Prepares system environment, creates directories, and sets up configuration
 # Parameters: None
 # Returns: None
-# Dependencies: write permissions, pass_generator function
-# Note: Creates log directories, sets permissions, and prepares environment variables
+# Dependencies: setup_env_file_variable function, write permissions
+# Note: Uses unified environment variable setup with AUTO_YES support
 prepare_general_environment () {
     log "info" "Preparing general environment..." "+"
-    
+
     # Check if .init.env file exists
     if [ ! -f "${INSTALL_DIR}/.init.env" ]; then
         log "error" "Configuration file .init.env not found in ${INSTALL_DIR}" "+"
         exit 1
     fi
-    
+
     log "ok" ".init.env configuration file found" "+"
-    
-    # Configure domains based on AUTO_YES parameter (passed from main install.sh)
-    if [[ "${AUTO_YES:-false}" == "true" ]]; then
-        # Use default values in auto mode
-        log "info" "Auto-configuration mode: using default domain values" "+"
-        
-        SSPSERVER_API_DOMAIN="apidemo.sspserver.org"
-        SSPSERVER_UI_DOMAIN="demo.sspserver.org" 
-        SSPSERVER_DOMAIN="sspdemo.sspserver.org"
-        
-        log "info" "Using default API domain: ${SSPSERVER_API_DOMAIN}" "+"
-        log "info" "Using default UI domain: ${SSPSERVER_UI_DOMAIN}" "+"
-        log "info" "Using default SSP domain: ${SSPSERVER_DOMAIN}" "+"
-        
-    else
-        # Interactive mode - ask user for domain configuration
-        log "info" "Interactive configuration mode" "+"
-        log "info" "Interactive configuration mode" "+"
-        
-        # API Server Domain
-        echo -n "Enter the domain for the SSP API server [apidemo.sspserver.org]: "
-        read -r SSPSERVER_API_DOMAIN < /dev/tty
-        SSPSERVER_API_DOMAIN=${SSPSERVER_API_DOMAIN:-apidemo.sspserver.org}
-        log "ok" "API domain set to: ${SSPSERVER_API_DOMAIN}" "+"
-        
-        # UI Server Domain  
-        echo -n "Enter the domain for the SSP UI server [demo.sspserver.org]: "
-        read -r SSPSERVER_UI_DOMAIN < /dev/tty
-        SSPSERVER_UI_DOMAIN=${SSPSERVER_UI_DOMAIN:-demo.sspserver.org}
-        log "ok" "UI domain set to: ${SSPSERVER_UI_DOMAIN}" "+"
-        
-        # SSP Server Domain
-        echo -n "Enter the domain for the SSP server [sspdemo.sspserver.org]: "
-        read -r SSPSERVER_DOMAIN < /dev/tty
-        SSPSERVER_DOMAIN=${SSPSERVER_DOMAIN:-sspdemo.sspserver.org}
-        log "ok" "SSP domain set to: ${SSPSERVER_DOMAIN}" "+"
-    fi
-    
-    # Apply domain configuration to .init.env file
-    log "info" "Updating configuration file with domain settings..." "+"
-    
-    # Replace API domain (apidemo.sspserver.org -> user input)
-    if ! sed -i '' "s/apidemo\.sspserver\.org/${SSPSERVER_API_DOMAIN}/g" "${INSTALL_DIR}/.init.env"; then
-        log "error" "Failed to update API domain in configuration" "+"
-        exit 1
-    fi
-    
-    # Replace UI domain (demo.sspserver.org -> user input)  
-    if ! sed -i '' "s/demo\.sspserver\.org/${SSPSERVER_UI_DOMAIN}/g" "${INSTALL_DIR}/.init.env"; then
-        log "error" "Failed to update UI domain in configuration" "+"
-        exit 1
-    fi
-    
-    # Replace SSP domain (sspdemo.sspserver.org -> user input)
-    if ! sed -i '' "s/sspdemo\.sspserver\.org/${SSPSERVER_DOMAIN}/g" "${INSTALL_DIR}/.init.env"; then
-        log "error" "Failed to update SSP domain in configuration" "+"
-        exit 1
-    fi
-    
-    log "ok" "Domain configuration applied successfully" "+"
-    
+
+    # Configure domains using the unified setup function
+    setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        "SSPSERVER_API_DOMAIN" "apidemo.sspserver.org" \
+        "Enter the domain for the SSP API server" "$AUTO_YES"
+
+    setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        "SSPSERVER_UI_DOMAIN" "demo.sspserver.org" \
+        "Enter the domain for the SSP UI server" "$AUTO_YES"
+
+    setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        "SSPSERVER_AD_DOMAIN" "sspdemo.sspserver.org" \
+        "Enter the domain for the SSP server" "$AUTO_YES"
+
     # Ensure proper file permissions
     log "info" "Setting proper file permissions..." "+"
     if ! chmod 644 "${INSTALL_DIR}/.init.env"; then
         log "error" "Failed to set permissions on .init.env" "+"
         exit 1
     fi
-    
+
+    # Set up additional environment variables for database and service authentication
+    setup_env_file_variable "${INSTALL_DIR}/postgres/.env" \
+        "POSTGRES_USER" "sspuser" \
+        "Enter the PostgreSQL user" "$AUTO_YES"
+
+    DB_PASS=$(pass_generator 12)
+    setup_env_file_variable "${INSTALL_DIR}/postgres/.env" \
+        "POSTGRES_PASSWORD" "${DB_PASS}" \
+        "Enter the PostgreSQL password" "$AUTO_YES"
+
+    setup_env_file_variable "${INSTALL_DIR}/postgres/.env" \
+        "POSTGRES_DB" "sspdb" \
+        "Enter the PostgreSQL database name" "$AUTO_YES"
+
+    # Ensure proper file permissions for .env files
+    if ! chmod 644 "${INSTALL_DIR}/postgres/.env"; then
+        log "error" "Failed to set permissions on postgres/.env" "+"
+        exit 1
+    fi
+
     log "ok" "File permissions set correctly" "+"
-    
     log "ok" "General environment preparation completed" "+"
 }
 

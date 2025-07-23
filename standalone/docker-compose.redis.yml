@@ -1,0 +1,24 @@
+services:
+  redis:
+    image: redis:7.4
+    container_name: ssp-redis
+    restart: always
+    pull_policy: always
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ssp:
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis_data:

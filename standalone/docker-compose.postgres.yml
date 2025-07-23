@@ -1,0 +1,31 @@
+volumes:
+  postgres_data:
+
+services:
+  postgres-server:
+    image: postgres:17.2
+    container_name: ssp-postgres
+    restart: always
+    pull_policy: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    env_file:
+      - ./.init.env
+      - postgres/.env
+
+  ssp:
+    depends_on:
+      postgres-server:
+        condition: service_healthy
+
+  api:
+    depends_on:
+      postgres-server:
+        condition: service_healthy

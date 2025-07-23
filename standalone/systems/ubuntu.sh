@@ -2,11 +2,11 @@
 
 ###############################################################################
 # SSP Server Ubuntu Installation Script
-# 
-# Description: Automated installation script for SSP Server on Ubuntu/Debian systems
+#
+# Description: Automated installation script for SSP Server on Ubuntu systems
 # Author: SSP Server Team
 # Version: 1.0
-# Platform: Ubuntu/Debian with systemd
+# Platform: Ubuntu with systemd
 #
 # This script performs the following operations:
 # - Installs system dependencies (curl, unzip, jq, git, build-essential)
@@ -17,7 +17,7 @@
 # - Installs and starts SSP Server as a systemd service
 #
 # Requirements:
-# - Ubuntu/Debian Linux distribution
+# - Ubuntu Linux distribution
 # - Root or sudo privileges
 # - Internet connectivity for package downloads
 # - systemd service manager
@@ -276,9 +276,9 @@ install_docker () {
 # Note: Uses RANDOM for password generation, alphanumeric characters only
 pass_generator () {
     symbols="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-    lenght="$1"
+    length="$1"
     password=""
-    while [ "${symbol:=1}" -le "$lenght" ]
+    while [ "${symbol:=1}" -le "$length" ]
     do
         password="${password}${symbols:$((RANDOM%${#symbols})):1}"
         ((symbol+=1))
@@ -312,21 +312,27 @@ download_service_files () {
     rm "${INSTALL_DIR}/sspserver.zip"
 }
 
+# Function: setup_env_file_variable
+# Description: Sets up environment variables in configuration files with interactive or auto mode
 # Parameters:
-#  $1 - env file path
-#  $2 - variable name
-#  $3 - default variable value
-#  $4 - prompt message
-#  $5 - auto-confirmation mode (optional)
+#   $1 - env file path
+#   $2 - variable name  
+#   $3 - default variable value
+#   $4 - prompt message
+#   $5 - auto-confirmation mode (optional)
+# Returns: None
+# Dependencies: grep, sed (GNU version), read command, file write permissions
+# Note: Ubuntu/Debian uses GNU sed which has different syntax than BSD sed
 setup_env_file_variable () {
     local env_file="$1"
     local var_name="$2"
     local default_value="$3"
     local prompt_message="$4"
     local auto_confirm="$5"
+    local return_value="${default_value}"
 
-    # Check if variable is already set in env file
-    if grep -q "^${var_name}=[^\s]+" "${env_file}"; then
+    # Check if variable is already set in env file (non-empty value)
+    if grep -q "^${var_name}=[^[:space:]]*[[:graph:]]" "${env_file}" 2>/dev/null; then
         log "info" "Environment variable '${var_name}' is already set in ${env_file}" "+"
     else
         # Prompt user for value
@@ -335,39 +341,131 @@ setup_env_file_variable () {
             user_input=${default_value}
             log "info" "Using default value for '${var_name}': ${user_input}" "+"
         else
-            read -p "${prompt_message} [${default_value}]: " user_input
+            read -p "${prompt_message} [${default_value}]: " user_input < /dev/tty
             user_input=${user_input:-$default_value}
+            return_value="${user_input}"
         fi
 
-        if grep -q "^${var_name}=" "${env_file}"; then
-            sed -i "s/^${var_name}=\s+/${var_name}=${user_input}/g" "${env_file}"
+        # GNU sed doesn't require empty string after -i for in-place editing
+        if grep -q "^${var_name}=" "${env_file}" 2>/dev/null; then
+            # Variable exists but is empty, update it
+            sed -i "s/^${var_name}=.*/${var_name}=${user_input}/g" "${env_file}"
         else
-            # If variable not found, append it to the env file
-            echo "${var_name}=${default_value}" >> "${env_file}"
+            # Variable not found, append it to the env file
+            echo "${var_name}=${user_input}" >> "${env_file}"
         fi
 
-        log "info" "Added environment variable '${var_name}' with default value to ${env_file}" "+"
+        log "info" "Set environment variable '${var_name}' to '${user_input}' in ${env_file}" "+"
     fi
+
+    # Return the value for further use
+    echo "${return_value}"
 }
 
 # Function: prepare_general_environment
 # Description: Prepares system environment, creates directories, and sets up configuration
 # Parameters: None
 # Returns: None
-# Dependencies: user input, sed command, write permissions to INSTALL_DIR
-# Note: Configures domain settings in .init.env file through interactive prompts
+# Dependencies: setup_env_file_variable function, write permissions to INSTALL_DIR
+# Note: Uses unified environment variable setup with AUTO_YES support
 prepare_general_environment () {
     log "info" "Preparing general environment..." "+"
 
+    # Check if .init.env file exists (should be created during service file download)
+    if [ ! -f "${INSTALL_DIR}/.init.env" ]; then
+        log "error" "Configuration file .init.env not found in ${INSTALL_DIR}" "+"
+        exit 1
+    fi
+
+    # Set up environment variables with prompts or defaults for service web domains
+    log "info" "Setting domains of the service..." "+"
+
+    SSPSERVER_PROJECT_DOMAIN=$(
+        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+            "SSPSERVER_PROJECT_DOMAIN" "${SSPSERVER_PROJECT_DOMAIN:-sspserver.org}" \
+            "Enter the domain for the project" "$AUTO_YES"
+    )
+
     setup_env_file_variable "${INSTALL_DIR}/.init.env" \
-        "SSPSERVER_API_DOMAIN" "apidemo.sspserver.org" \
+        "SSPSERVER_API_DOMAIN" "api.${SSPSERVER_PROJECT_DOMAIN}" \
         "Enter the domain for the SSP API server" "$AUTO_YES"
+
     setup_env_file_variable "${INSTALL_DIR}/.init.env" \
-        "SSPSERVER_UI_DOMAIN" "demo.sspserver.org" \
+        "SSPSERVER_UI_DOMAIN" "control.${SSPSERVER_PROJECT_DOMAIN}" \
         "Enter the domain for the SSP UI server" "$AUTO_YES"
+
     setup_env_file_variable "${INSTALL_DIR}/.init.env" \
-        "SSPSERVER_DOMAIN" "sspdemo.sspserver.org" \
-        "Enter the domain for the SSP server" "$AUTO_YES"
+        "SSPSERVER_AD_DOMAIN" "ssp.${SSPSERVER_PROJECT_DOMAIN}" \
+        "Enter the domain for the SSP AD server" "$AUTO_YES"
+
+    # Set up control environment variables
+    log "info" "Setting up control environment variables..." "+"
+
+    setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        "CONTROL_AUTH_SECRET" "$(pass_generator 32)" \
+        "Enter the NextAuth secret" "$AUTO_YES"
+
+    # Set up additional environment variables for database and service authentication
+    log "info" "Setting up database environment variables..." "+"
+
+    # Check if need to set up external database
+    read -p "Do you want to set up an external database? (y/N): " -n 1 use_external_db < /dev/tty
+    if [[ "$use_external_db" =~ ^[Yy]$ ]]; then
+        log "info" "Setting up external database connection..." "+"
+
+        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+            "POSTGRES_CONNECTION" "" \
+            "Enter the PostgreSQL connection: (postgres://user:password@host:port/dbname?sslmode=disable)" "$AUTO_YES"
+
+        if [[ -z "${POSTGRES_CONNECTION}" ]]; then
+            log "error" "PostgreSQL connection string cannot be empty" "+"
+            exit 1
+        fi
+    else
+        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+            "POSTGRES_USER" "sspuser" \
+            "Enter the PostgreSQL user" "$AUTO_YES"
+
+        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+            "POSTGRES_PASSWORD" "$(pass_generator 12)" \
+            "Enter the PostgreSQL password" "$AUTO_YES"
+
+        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+            "POSTGRES_DB" "sspdb" \
+            "Enter the PostgreSQL database name" "$AUTO_YES"
+    fi
+
+    # Set up statistic environment variables
+    log "info" "Setting up statistic environment variables..." "+"
+
+    # Check if need to set up external statistic database
+    read -p "Do you want to set up an external statistic database? (y/N): " -n 1 use_external_statistic_db < /dev/tty
+
+    if [[ "$use_external_statistic_db" =~ ^[Yy]$ ]]; then
+        log "info" "Setting up external statistic database connection..." "+"
+
+        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+            "CLICKHOUSE_CONNECTION" "" \
+            "Enter the ClickHouse connection: (clickhouse://user:password@host:port/dbname?sslmode=disable)" "$AUTO_YES"
+
+        if [[ -z "${CLICKHOUSE_CONNECTION}" ]]; then
+            log "error" "ClickHouse connection string cannot be empty" "+"
+            exit 1
+        fi
+    else
+        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+            "STATISTIC_DB_NAME" "sspstats" \
+            "Enter the ClickHouse database name" "$AUTO_YES"
+    fi
+
+    # Ensure proper file permissions for .env files
+    if ! chmod 644 "${INSTALL_DIR}/.init.env"; then
+        log "error" "Failed to set permissions on postgres/.env" "+"
+        exit 1
+    fi
+
+    log "ok" "File permissions set correctly" "+"
+    log "ok" "General environment preparation completed" "+"
 }
 
 # Function: prepare_sspservice
@@ -378,20 +476,56 @@ prepare_general_environment () {
 # Note: Installs systemd service, enables auto-start, and manages service lifecycle
 prepare_sspservice () {
     log "info" "Preparing SSP service..." "+"
+
+    COMPOSE_FILES=(
+        "${INSTALL_DIR}/docker-compose.base.yml"
+    )
+
+    source "${INSTALL_DIR}/.init.env" && {
+        [[ -n "${POSTGRES_CONNECTION}" ]]           && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.postgres.yml")
+        [[ -n "${CLICKHOUSE_CONNECTION}" ]]         && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.clickhouse.yml")
+        [[ -n "${EVENT_QUEUE_CONNECTION_BASE}" ]]   && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.redis.yml")
+    }
+
+    log "info" "Configuring docker-compose.yml..." "+"
+    source "${INSTALL_DIR}/.init.env" && \
+        docker compose \
+            $(for file in "${COMPOSE_FILES[@]}"; do echo -n "-f ${file} "; done) \
+            config > "${INSTALL_DIR}/docker-compose.yml"
+
+    #===========================================================================
+    # Create systemd service file
+    # This file will be used to manage the SSP Server service
+    # It will be placed in /etc/systemd/system/sspserver.service
+    #===========================================================================
+
+    log "info" "Creating systemd service file..." "+"
     cp ${INSTALL_DIR}/sspserver/sspserver.service ${SYSTEMD_SERVICE_DIR}/sspserver.service
-
     chmod 644 ${SYSTEMD_SERVICE_DIR}/sspserver.service
+}
 
+# Function: run_sspservice
+# Description: Starts the SSP Server service using systemd
+# Parameters: None
+# Returns: None
+# Dependencies: systemctl, service files, systemd service directory
+# Note: Enables the service to start on boot, stops if already running, and starts it
+run_sspservice () {
+    log "info" "Running SSP service..." "+"
     systemctl daemon-reload
     systemctl enable sspserver.service
+
     # Stop and start the service to apply changes
     log "info" "Restarting SSP service..." "+"
     if systemctl is-active --quiet sspserver.service; then
-        systemctl stop sspserver.service
         log "info" "SSP service is already running, stopping it..." "+"
+        systemctl stop sspserver.service
     else
         log "info" "SSP service is not running, starting it for the first time..." "+"
     fi
+
+    # Start the SSP service
+    log "info" "Starting SSP service..." "+"
     systemctl start sspserver.service
     if [[ $? -ne 0 ]]; then
         log "error" "Failed to start SSP service" "+"
@@ -438,5 +572,8 @@ download_service_files
 # 5. Prepare project environment
 prepare_general_environment
 
-# 6. Pull SSP Server service
+# 6. Prepare SSP Server service for running
 prepare_sspservice
+
+# 7. Run SSP Server service
+run_sspservice
