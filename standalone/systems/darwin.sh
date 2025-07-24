@@ -480,7 +480,7 @@ prepare_general_environment () {
         "Enter the domain for the SSP API server" "$AUTO_YES"
 
     setup_env_file_variable "${INSTALL_DIR}/.init.env" \
-        "SSPSERVER_UI_DOMAIN" "demo.sspserver.org" \
+        "SSPSERVER_CONTROL_DOMAIN" "demo.sspserver.org" \
         "Enter the domain for the SSP UI server" "$AUTO_YES"
 
     setup_env_file_variable "${INSTALL_DIR}/.init.env" \

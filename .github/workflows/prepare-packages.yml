@@ -59,6 +59,9 @@ jobs:
             cp -r standalone/api        "${build_dir}/"
             cp -r standalone/control    "${build_dir}/"
 
+            echo "Copy eventstream configs"
+            cp -r standalone/eventstream "${build_dir}/"
+
             echo "Copy webserver configs"
             cp -r standalone/nginx "${build_dir}/"
 
