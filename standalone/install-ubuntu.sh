@@ -113,7 +113,7 @@ log () {
     
     # Display on stdout if requested
     if [ "$display_flag" == "+" ]; then
-        echo -e "$(date '+%d-%m-%Y %H:%M:%S') $formatted_message"
+        echo -e "$(date '+%d-%m-%Y %H:%M:%S') $formatted_message" >&2
     fi
 }
 
@@ -391,7 +391,7 @@ prepare_general_environment () {
         "Enter the domain for the SSP API server" "$AUTO_YES"
 
     setup_env_file_variable "${INSTALL_DIR}/.init.env" \
-        "SSPSERVER_UI_DOMAIN" "control.${SSPSERVER_PROJECT_DOMAIN}" \
+        "SSPSERVER_CONTROL_DOMAIN" "control.${SSPSERVER_PROJECT_DOMAIN}" \
         "Enter the domain for the SSP UI server" "$AUTO_YES"
 
     setup_env_file_variable "${INSTALL_DIR}/.init.env" \
@@ -482,9 +482,9 @@ prepare_sspservice () {
     )
 
     source "${INSTALL_DIR}/.init.env" && {
-        [[ -n "${POSTGRES_CONNECTION}" ]]           && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.postgres.yml")
-        [[ -n "${CLICKHOUSE_CONNECTION}" ]]         && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.clickhouse.yml")
-        [[ -n "${EVENT_QUEUE_CONNECTION_BASE}" ]]   && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.redis.yml")
+        [[ -z "${POSTGRES_CONNECTION}" ]]           && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.postgres.yml")
+        [[ -z "${CLICKHOUSE_CONNECTION}" ]]         && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.clickhouse.yml")
+        [[ -z "${EVENT_QUEUE_CONNECTION_BASE}" ]]   && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.redis.yml")
     }
 
     log "info" "Configuring docker-compose.yml..." "+"
