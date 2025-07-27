@@ -419,9 +419,9 @@ prepare_environment_file () {
 prepare_general_environment () {
     log "info" "Preparing general environment..." "+"
 
-    # Check if .init.env file exists (should be created during service file download)
+    # Check if .env file exists (should be created during service file download)
     if [ ! -f "${PROJECT_ENV_FILE}" ]; then
-        log "error" "Configuration file .init.env not found in ${INSTALL_DIR}" "+"
+        log "error" "Configuration file ${PROJECT_ENV_FILE} not found in ${INSTALL_DIR}" "+"
         exit 1
     fi
 
