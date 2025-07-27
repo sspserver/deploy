@@ -384,7 +384,10 @@ prepare_environment_file () {
     fi
 
     # Mix template file with environment variables and put to stdout
-    source "${env_file}" && envsubst < "${template_file}"
+    set -a
+    source "${env_file}"
+    set +a
+    envsubst < "${template_file}"
 }
 
 # Function: prepare_general_environment
