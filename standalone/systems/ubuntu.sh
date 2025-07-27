@@ -324,8 +324,8 @@ download_service_files () {
         exit 1
     fi
 
-    log "info" "Unzipping service files (without overwriting existing files)..." "+"
-    unzip -n "${INSTALL_DIR}/sspserver.zip" -d "${INSTALL_DIR}" >> "${LOG_FILE}" 2>&1
+    log "info" "Unzipping service files..." "+"
+    unzip "${INSTALL_DIR}/sspserver.zip" -d "${INSTALL_DIR}" >> "${LOG_FILE}" 2>&1
     if [[ $? -ne 0 ]]; then
         log "error" "Failed to unzip service files" "+"
         exit 1
