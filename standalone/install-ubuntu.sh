@@ -122,6 +122,7 @@ log () {
 # * unzip
 # * jq
 # * git
+# * envsubst
 # * build-essential
 # * ca-certificates
 # * gnupg
@@ -156,7 +157,9 @@ install_dependencies () {
         build-essential \
         ca-certificates \
         gnupg \
-        lsb-release >> "${LOG_FILE}" 2>&1
+        lsb-release \
+        gettext \
+        envsubst >> "${LOG_FILE}" 2>&1
 }
 
 # Function: install_systemd_dependency
@@ -362,6 +365,28 @@ setup_env_file_variable () {
     echo "${return_value}"
 }
 
+# Function: prepare_environment_file
+# Description: Prepares the environment file, initializes variables from other environment files
+# Parameters:
+#   $1 - env file path with variables which need to prepare env file in second parameter
+#   $2 - env file path for preparation (template)
+# Returns: new environment file stdout
+prepare_environment_file () {
+    local env_file="$1"
+    local template_file="$2"
+
+    log "info" "Preparing environment file from ${template_file} to ${env_file}" "+"
+
+    # Check if template file exists
+    if [ ! -f "${template_file}" ]; then
+        log "error" "Template file not found: ${template_file}" "+"
+        exit 1
+    fi
+
+    # Mix template file with environment variables and put to stdout
+    source "${env_file}" && envsubst < "${template_file}"
+}
+
 # Function: prepare_general_environment
 # Description: Prepares system environment, creates directories, and sets up configuration
 # Parameters: None
@@ -477,6 +502,20 @@ prepare_general_environment () {
 prepare_sspservice () {
     log "info" "Preparing SSP service..." "+"
 
+    # Prepare services environment
+    log "info" "Preparing services environment..." "+"
+    prepare_environment_file "${INSTALL_DIR}/.init.env" \
+        "${INSTALL_DIR}/sspserver/.tmpl.env" > "${INSTALL_DIR}/sspserver/.env"
+    prepare_environment_file "${INSTALL_DIR}/.init.env" \
+        "${INSTALL_DIR}/api/.tmpl.env" > "${INSTALL_DIR}/api/.env"
+    prepare_environment_file "${INSTALL_DIR}/.init.env" \
+        "${INSTALL_DIR}/postgres/.tmpl.env" > "${INSTALL_DIR}/postgres/.env"
+    prepare_environment_file "${INSTALL_DIR}/.init.env" \
+        "${INSTALL_DIR}/control/.tmpl.env" > "${INSTALL_DIR}/control/.env"
+    prepare_environment_file "${INSTALL_DIR}/.init.env" \
+        "${INSTALL_DIR}/eventstream/.tmpl.env" > "${INSTALL_DIR}/eventstream/.env"
+
+    log "info" "Configuring docker-compose.yml..." "+"
     COMPOSE_FILES=(
         "${INSTALL_DIR}/docker-compose.base.yml"
     )
@@ -487,7 +526,6 @@ prepare_sspservice () {
         [[ -z "${EVENT_QUEUE_CONNECTION_BASE}" ]]   && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.redis.yml")
     }
 
-    log "info" "Configuring docker-compose.yml..." "+"
     source "${INSTALL_DIR}/.init.env" && \
         docker compose \
             $(for file in "${COMPOSE_FILES[@]}"; do echo -n "-f ${file} "; done) \
