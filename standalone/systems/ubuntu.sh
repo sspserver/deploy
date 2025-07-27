@@ -422,9 +422,15 @@ prepare_general_environment () {
         "SSPSERVER_CONTROL_DOMAIN" "control.${SSPSERVER_PROJECT_DOMAIN}" \
         "Enter the domain for the SSP UI server" "$AUTO_YES"
 
+    SSPSERVER_AD_DOMAIN=$(
+        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+            "SSPSERVER_AD_DOMAIN" "ssp.${SSPSERVER_PROJECT_DOMAIN}" \
+            "Enter the domain for the SSP AD server" "$AUTO_YES"
+    )
+
     setup_env_file_variable "${INSTALL_DIR}/.init.env" \
-        "SSPSERVER_AD_DOMAIN" "ssp.${SSPSERVER_PROJECT_DOMAIN}" \
-        "Enter the domain for the SSP AD server" "$AUTO_YES"
+        "SSPSERVER_TRACKER_DOMAIN" "${SSPSERVER_AD_DOMAIN}" \
+        "Enter the domain for the SSP Tracker server" "$AUTO_YES"
 
     # Set up control environment variables
     log "info" "Setting up control environment variables..." "+"
