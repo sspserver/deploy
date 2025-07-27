@@ -44,6 +44,7 @@ LOG_FILE="${LOG_DIR}/sspserver_1click_standalone.log"
 
 INSTALL_DIR="/opt/sspserver"
 SYSTEMD_SERVICE_DIR="/etc/systemd/system"
+PROJECT_ENV_FILE="${INSTALL_DIR}/.env"
 OS_NAME="ubuntu"
 
 DOWNLOAD_STANDALONE_URI="https://github.com/sspserver/deploy/raw/refs/heads/build/standalone/ubuntu.zip"
@@ -115,6 +116,25 @@ log () {
     if [ "$display_flag" == "+" ]; then
         echo -e "$(date '+%d-%m-%Y %H:%M:%S') $formatted_message" >&2
     fi
+}
+
+# Function: update_env_file_from
+# Description: Updates environment file with variables from another source file
+# Parameters:
+#   $1 - target environment file path
+#   $2 - source environment file path
+# Returns: None
+update_env_file_from () {
+    local env_file="$1"
+    local env_source_file="$2"
+
+    log "info" "Updating environment file ${env_file} from ${env_source_file}" "+"
+
+    grep -v '^#' "$env_source_file" | while IFS='=' read -r key value; do
+        if ! grep -q "^$key=" "$env_file"; then
+            echo "$key=$value" >> "$env_file"
+        fi
+    done
 }
 
 ## Project dependencies
@@ -400,7 +420,7 @@ prepare_general_environment () {
     log "info" "Preparing general environment..." "+"
 
     # Check if .init.env file exists (should be created during service file download)
-    if [ ! -f "${INSTALL_DIR}/.init.env" ]; then
+    if [ ! -f "${PROJECT_ENV_FILE}" ]; then
         log "error" "Configuration file .init.env not found in ${INSTALL_DIR}" "+"
         exit 1
     fi
@@ -409,33 +429,33 @@ prepare_general_environment () {
     log "info" "Setting domains of the service..." "+"
 
     SSPSERVER_PROJECT_DOMAIN=$(
-        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        setup_env_file_variable "${PROJECT_ENV_FILE}" \
             "SSPSERVER_PROJECT_DOMAIN" "${SSPSERVER_PROJECT_DOMAIN:-sspserver.org}" \
             "Enter the domain for the project" "$AUTO_YES"
     )
 
-    setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+    setup_env_file_variable "${PROJECT_ENV_FILE}" \
         "SSPSERVER_API_DOMAIN" "api.${SSPSERVER_PROJECT_DOMAIN}" \
         "Enter the domain for the SSP API server" "$AUTO_YES"
 
-    setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+    setup_env_file_variable "${PROJECT_ENV_FILE}" \
         "SSPSERVER_CONTROL_DOMAIN" "control.${SSPSERVER_PROJECT_DOMAIN}" \
         "Enter the domain for the SSP UI server" "$AUTO_YES"
 
     SSPSERVER_AD_DOMAIN=$(
-        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        setup_env_file_variable "${PROJECT_ENV_FILE}" \
             "SSPSERVER_AD_DOMAIN" "ssp.${SSPSERVER_PROJECT_DOMAIN}" \
             "Enter the domain for the SSP AD server" "$AUTO_YES"
     )
 
-    setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+    setup_env_file_variable "${PROJECT_ENV_FILE}" \
         "SSPSERVER_TRACKER_DOMAIN" "${SSPSERVER_AD_DOMAIN}" \
         "Enter the domain for the SSP Tracker server" "$AUTO_YES"
 
     # Set up control environment variables
     log "info" "Setting up control environment variables..." "+"
 
-    setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+    setup_env_file_variable "${PROJECT_ENV_FILE}" \
         "CONTROL_AUTH_SECRET" "$(pass_generator 32)" \
         "Enter the NextAuth secret" "$AUTO_YES"
 
@@ -447,7 +467,7 @@ prepare_general_environment () {
     if [[ "$use_external_db" =~ ^[Yy]$ ]]; then
         log "info" "Setting up external database connection..." "+"
 
-        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        setup_env_file_variable "${PROJECT_ENV_FILE}" \
             "POSTGRES_CONNECTION" "" \
             "Enter the PostgreSQL connection: (postgres://user:password@host:port/dbname?sslmode=disable)" "$AUTO_YES"
 
@@ -456,15 +476,15 @@ prepare_general_environment () {
             exit 1
         fi
     else
-        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        setup_env_file_variable "${PROJECT_ENV_FILE}" \
             "POSTGRES_USER" "sspuser" \
             "Enter the PostgreSQL user" "$AUTO_YES"
 
-        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        setup_env_file_variable "${PROJECT_ENV_FILE}" \
             "POSTGRES_PASSWORD" "$(pass_generator 12)" \
             "Enter the PostgreSQL password" "$AUTO_YES"
 
-        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        setup_env_file_variable "${PROJECT_ENV_FILE}" \
             "POSTGRES_DB" "sspdb" \
             "Enter the PostgreSQL database name" "$AUTO_YES"
     fi
@@ -478,7 +498,7 @@ prepare_general_environment () {
     if [[ "$use_external_statistic_db" =~ ^[Yy]$ ]]; then
         log "info" "Setting up external statistic database connection..." "+"
 
-        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        setup_env_file_variable "${PROJECT_ENV_FILE}" \
             "CLICKHOUSE_CONNECTION" "" \
             "Enter the ClickHouse connection: (clickhouse://user:password@host:port/dbname?sslmode=disable)" "$AUTO_YES"
 
@@ -487,13 +507,13 @@ prepare_general_environment () {
             exit 1
         fi
     else
-        setup_env_file_variable "${INSTALL_DIR}/.init.env" \
+        setup_env_file_variable "${PROJECT_ENV_FILE}" \
             "STATISTIC_DB_NAME" "sspstats" \
             "Enter the ClickHouse database name" "$AUTO_YES"
     fi
 
     # Ensure proper file permissions for .env files
-    if ! chmod 644 "${INSTALL_DIR}/.init.env"; then
+    if ! chmod 644 "${PROJECT_ENV_FILE}"; then
         log "error" "Failed to set permissions on postgres/.env" "+"
         exit 1
     fi
@@ -513,15 +533,15 @@ prepare_sspservice () {
 
     # Prepare services environment
     log "info" "Preparing services environment..." "+"
-    prepare_environment_file "${INSTALL_DIR}/.init.env" \
+    prepare_environment_file "${PROJECT_ENV_FILE}" \
         "${INSTALL_DIR}/sspserver/.tmpl.env" > "${INSTALL_DIR}/sspserver/.env"
-    prepare_environment_file "${INSTALL_DIR}/.init.env" \
+    prepare_environment_file "${PROJECT_ENV_FILE}" \
         "${INSTALL_DIR}/api/.tmpl.env" > "${INSTALL_DIR}/api/.env"
-    prepare_environment_file "${INSTALL_DIR}/.init.env" \
+    prepare_environment_file "${PROJECT_ENV_FILE}" \
         "${INSTALL_DIR}/postgres/.tmpl.env" > "${INSTALL_DIR}/postgres/.env"
-    prepare_environment_file "${INSTALL_DIR}/.init.env" \
+    prepare_environment_file "${PROJECT_ENV_FILE}" \
         "${INSTALL_DIR}/control/.tmpl.env" > "${INSTALL_DIR}/control/.env"
-    prepare_environment_file "${INSTALL_DIR}/.init.env" \
+    prepare_environment_file "${PROJECT_ENV_FILE}" \
         "${INSTALL_DIR}/eventstream/.tmpl.env" > "${INSTALL_DIR}/eventstream/.env"
 
     log "info" "Configuring docker-compose.yml..." "+"
@@ -529,13 +549,13 @@ prepare_sspservice () {
         "${INSTALL_DIR}/docker-compose.base.yml"
     )
 
-    source "${INSTALL_DIR}/.init.env" && {
+    source "${PROJECT_ENV_FILE}" && {
         [[ -z "${POSTGRES_CONNECTION}" ]]           && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.postgres.yml")
         [[ -z "${CLICKHOUSE_CONNECTION}" ]]         && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.clickhouse.yml")
         [[ -z "${EVENT_QUEUE_CONNECTION_BASE}" ]]   && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.redis.yml")
     }
 
-    source "${INSTALL_DIR}/.init.env" && \
+    source "${PROJECT_ENV_FILE}" && \
         docker compose \
             $(for file in "${COMPOSE_FILES[@]}"; do echo -n "-f ${file} "; done) \
             config > "${INSTALL_DIR}/docker-compose.yml"
@@ -589,6 +609,16 @@ run_sspservice () {
 # Log startup information
 log "info" "Starting SSP Server installation for Ubuntu" "+"
 log "info" "Auto-confirmation mode: ${AUTO_YES}" "+"
+
+# 0. Update project environment file
+log "info" "Updating project environment file..." "+"
+if [ -f "${PROJECT_ENV_FILE}" ]; then
+    log "info" "Project environment file already exists, updating..." "+"
+    update_env_file_from "${PROJECT_ENV_FILE}" "${INSTALL_DIR}/.init.env"
+else
+    log "info" "Project environment file not found, creating new one..." "+"
+    cp "${INSTALL_DIR}/.init.env" "${PROJECT_ENV_FILE}"
+fi
 
 # 1. Install dependencies
 install_dependencies
