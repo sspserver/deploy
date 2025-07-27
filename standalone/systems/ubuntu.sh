@@ -131,6 +131,9 @@ update_env_file_from () {
     log "info" "Updating environment file ${env_file} from ${env_source_file}" "+"
 
     grep -v '^#' "$env_source_file" | while IFS='=' read -r key value; do
+        if [ -z "$key" ]; then
+            continue
+        fi
         if ! grep -q "^$key=" "$env_file"; then
             echo "$key=$value" >> "$env_file"
         fi
