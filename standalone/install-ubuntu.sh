@@ -466,12 +466,18 @@ prepare_general_environment () {
     log "info" "Setting up database environment variables..." "+"
 
     # Check if need to set up external database
-    read -p "Do you want to set up an external database? (y/N): " -n 1 use_external_db < /dev/tty
+    local use_external_db='N'
+    if [[ -z "${POSTGRES_CONNECTION}" ]]; then
+        use_external_db='Y'
+    elif [[ -z "${POSTGRES_DB}" ]]; then
+        read -p "Do you want to set up an external database? (y/N): " -n 1 use_external_db < /dev/tty
+    fi
+
     if [[ "$use_external_db" =~ ^[Yy]$ ]]; then
         log "info" "Setting up external database connection..." "+"
 
         setup_env_file_variable "${PROJECT_ENV_FILE}" \
-            "POSTGRES_CONNECTION" "" \
+            "POSTGRES_CONNECTION" "${POSTGRES_CONNECTION_EXTERNAL:-}" \
             "Enter the PostgreSQL connection: (postgres://user:password@host:port/dbname?sslmode=disable)" "$AUTO_YES"
 
         if [[ -z "${POSTGRES_CONNECTION}" ]]; then
@@ -480,23 +486,28 @@ prepare_general_environment () {
         fi
     else
         setup_env_file_variable "${PROJECT_ENV_FILE}" \
+            "POSTGRES_DB" "sspdb" \
+            "Enter the PostgreSQL database name" "$AUTO_YES"
+
+        setup_env_file_variable "${PROJECT_ENV_FILE}" \
             "POSTGRES_USER" "sspuser" \
             "Enter the PostgreSQL user" "$AUTO_YES"
 
         setup_env_file_variable "${PROJECT_ENV_FILE}" \
             "POSTGRES_PASSWORD" "$(pass_generator 12)" \
             "Enter the PostgreSQL password" "$AUTO_YES"
-
-        setup_env_file_variable "${PROJECT_ENV_FILE}" \
-            "POSTGRES_DB" "sspdb" \
-            "Enter the PostgreSQL database name" "$AUTO_YES"
     fi
 
     # Set up statistic environment variables
     log "info" "Setting up statistic environment variables..." "+"
 
     # Check if need to set up external statistic database
-    read -p "Do you want to set up an external statistic database? (y/N): " -n 1 use_external_statistic_db < /dev/tty
+    local use_external_statistic_db='N'
+    if [[ -z "${CLICKHOUSE_CONNECTION}" ]]; then
+        use_external_statistic_db='Y'
+    elif [[ -z "${CLICKHOUSE_DB}" ]]; then
+        read -p "Do you want to set up an external statistic database? (y/N): " -n 1 use_external_statistic_db < /dev/tty
+    fi
 
     if [[ "$use_external_statistic_db" =~ ^[Yy]$ ]]; then
         log "info" "Setting up external statistic database connection..." "+"
@@ -511,8 +522,16 @@ prepare_general_environment () {
         fi
     else
         setup_env_file_variable "${PROJECT_ENV_FILE}" \
-            "STATISTIC_DB_NAME" "sspstats" \
+            "CLICKHOUSE_DB" "sspstats" \
             "Enter the ClickHouse database name" "$AUTO_YES"
+
+        setup_env_file_variable "${PROJECT_ENV_FILE}" \
+            "CLICKHOUSE_USER" "default" \
+            "Enter the ClickHouse user" "$AUTO_YES"
+
+        setup_env_file_variable "${PROJECT_ENV_FILE}" \
+            "CLICKHOUSE_PASSWORD" "$(pass_generator 12)" \
+            "Enter the ClickHouse password" "$AUTO_YES"
     fi
 
     # Ensure proper file permissions for .env files
@@ -537,25 +556,27 @@ prepare_sspservice () {
     # Prepare services environment
     log "info" "Preparing services environment..." "+"
     prepare_environment_file "${PROJECT_ENV_FILE}" \
-        "${INSTALL_DIR}/sspserver/.tmpl.env" > "${INSTALL_DIR}/sspserver/.env"
+        "${INSTALL_DIR}/app-ssp/.tmpl.env" > "${INSTALL_DIR}/app-ssp/.env"
     prepare_environment_file "${PROJECT_ENV_FILE}" \
-        "${INSTALL_DIR}/api/.tmpl.env" > "${INSTALL_DIR}/api/.env"
+        "${INSTALL_DIR}/app-api/.tmpl.env" > "${INSTALL_DIR}/app-api/.env"
     prepare_environment_file "${PROJECT_ENV_FILE}" \
         "${INSTALL_DIR}/postgres/.tmpl.env" > "${INSTALL_DIR}/postgres/.env"
     prepare_environment_file "${PROJECT_ENV_FILE}" \
-        "${INSTALL_DIR}/control/.tmpl.env" > "${INSTALL_DIR}/control/.env"
+        "${INSTALL_DIR}/app-control/.tmpl.env" > "${INSTALL_DIR}/app-control/.env"
     prepare_environment_file "${PROJECT_ENV_FILE}" \
         "${INSTALL_DIR}/eventstream/.tmpl.env" > "${INSTALL_DIR}/eventstream/.env"
 
     log "info" "Configuring docker-compose.yml..." "+"
     COMPOSE_FILES=(
-        "${INSTALL_DIR}/docker-compose.base.yml"
+        "${INSTALL_DIR}/docker-compose.base.yml",
+        "${INSTALL_DIR}/eventstream/docker-compose.yml",
+        "${INSTALL_DIR}/nginx/docker-compose.yml",
     )
 
     source "${PROJECT_ENV_FILE}" && {
-        [[ -z "${POSTGRES_CONNECTION}" ]]           && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.postgres.yml")
-        [[ -z "${CLICKHOUSE_CONNECTION}" ]]         && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.clickhouse.yml")
-        [[ -z "${EVENT_QUEUE_CONNECTION_BASE}" ]]   && COMPOSE_FILES+=("${INSTALL_DIR}/docker-compose.redis.yml")
+        [[ -z "${POSTGRES_CONNECTION}" ]]           && COMPOSE_FILES+=("${INSTALL_DIR}/postgres/docker-compose.yml")
+        [[ -z "${CLICKHOUSE_CONNECTION}" ]]         && COMPOSE_FILES+=("${INSTALL_DIR}/clickhouse/docker-compose.yml")
+        [[ -z "${EVENT_QUEUE_CONNECTION_BASE}" ]]   && COMPOSE_FILES+=("${INSTALL_DIR}/redis/docker-compose.yml")
     }
 
     source "${PROJECT_ENV_FILE}" && \
@@ -570,7 +591,7 @@ prepare_sspservice () {
     #===========================================================================
 
     log "info" "Creating systemd service file..." "+"
-    cp ${INSTALL_DIR}/sspserver/sspserver.service ${SYSTEMD_SERVICE_DIR}/sspserver.service
+    cp ${INSTALL_DIR}/init.d/sspserver.service ${SYSTEMD_SERVICE_DIR}/sspserver.service
     chmod 644 ${SYSTEMD_SERVICE_DIR}/sspserver.service
 }
 
