@@ -1,0 +1,19 @@
+services:
+  eventstream:
+    image: geniusrabbit/eventstream:latest
+    restart: always
+    pull_policy: always
+    depends_on: [redis, clickhouse-server]
+    healthcheck:
+      test: ["CMD", "/curl", "-f", "http://127.0.0.1:6060/health-check"]
+      interval: 3s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    env_file:
+      - eventstream/.env
+    volumes:
+      - ../eventstream/config.hcl:/config.hcl
+    environment:
+      - SERVER_PROFILE_MODE=net
+      - SERVER_PROFILE_LISTEN=:6060

@@ -1,0 +1,26 @@
+services:
+  proxy:
+    image: nginx:1.27
+    container_name: ssp-webserver
+    restart: always
+    pull_policy: always
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    depends_on:
+      - ssp
+      - api
+      - control
+    volumes:
+      - ./nginx:/etc/nginx/templates
+      - ./nginx/ssl:/etc/nginx/ssl
+    environment:
+      - NGINX_SSP_HOST=ssp
+      - NGINX_SSP_PORT=8080
+      - NGINX_SSP_PUBLIC_HOST=${SSPSERVER_AD_DOMAIN}
+      - NGINX_API_HOST=api
+      - NGINX_API_PORT=8080
+      - NGINX_API_PUBLIC_HOST=${SSPSERVER_API_DOMAIN}
+      - NGINX_CONTROL_HOST=control
+      - NGINX_CONTROL_PORT=3000
+      - NGINX_CONTROL_PUBLIC_HOST=${SSPSERVER_CONTROL_DOMAIN}

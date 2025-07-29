@@ -50,14 +50,18 @@ jobs:
             echo "Create build directory: $build_dir"
             mkdir -p ${build_dir}
 
+            echo "Copy system specific files"
+            cp -r standalone/init.d "${build_dir}/"
+
             echo "Copy databases configs"
             cp -r standalone/postgres   "${build_dir}/"
             cp -r standalone/clickhouse "${build_dir}/"
+            cp -r standalone/redis      "${build_dir}/"
 
             echo "Copy services configs"
-            cp -r standalone/sspserver  "${build_dir}/"
-            cp -r standalone/api        "${build_dir}/"
-            cp -r standalone/control    "${build_dir}/"
+            cp -r standalone/app-ssp        "${build_dir}/"
+            cp -r standalone/app-api        "${build_dir}/"
+            cp -r standalone/app-control    "${build_dir}/"
 
             echo "Copy eventstream configs"
             cp -r standalone/eventstream "${build_dir}/"
@@ -70,9 +74,6 @@ jobs:
 
             echo "Copy docker-compose and init env files"
             cp    standalone/docker-compose.base.yml "${build_dir}/"
-            cp    standalone/docker-compose.clickhouse.yml "${build_dir}/"
-            cp    standalone/docker-compose.postgres.yml "${build_dir}/"
-            cp    standalone/docker-compose.redis.yml "${build_dir}/"
             cp    standalone/.init.env "${build_dir}/"
 
             echo "Pack the standalone directory into a zip file"
