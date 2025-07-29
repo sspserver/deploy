@@ -338,6 +338,25 @@ download_service_files () {
     rm "${INSTALL_DIR}/sspserver.zip"
 }
 
+# Function: is_env_var_setup
+# Description: Checks if a specific environment variable is set in the given file
+# Parameters:
+#   $1 - environment file path
+#   $2 - variable name to check
+# Returns: 0 if variable is set, 1 if not
+# Dependencies: grep command
+# Note: Checks for non-empty variable value in the environment file
+is_env_var_setup () {
+    local env_file="$1"
+    local var_name="$2"
+    
+    if grep -q "^${var_name}=" "${env_file}" 2>/dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Function: setup_env_file_variable
 # Description: Sets up environment variables in configuration files with interactive or auto mode
 # Parameters:
@@ -467,9 +486,9 @@ prepare_general_environment () {
 
     # Check if need to set up external database
     local use_external_db='N'
-    if [[ ! -z "${POSTGRES_CONNECTION}" ]]; then
+    if is_env_var_setup "${PROJECT_ENV_FILE}" "POSTGRES_CONNECTION"; then
         use_external_db='Y'
-    elif [[ -z "${POSTGRES_DB}" ]]; then
+    elif ! is_env_var_setup "${PROJECT_ENV_FILE}" "POSTGRES_DB"; then
         read -p "Do you want to set up an external database? (y/N): " -n 1 use_external_db < /dev/tty
     fi
 
@@ -480,7 +499,7 @@ prepare_general_environment () {
             "POSTGRES_CONNECTION" "${POSTGRES_CONNECTION_EXTERNAL:-}" \
             "Enter the PostgreSQL connection: (postgres://user:password@host:port/dbname?sslmode=disable)" "$AUTO_YES"
 
-        if [[ -z "${POSTGRES_CONNECTION}" ]]; then
+        if ! is_env_var_setup "${PROJECT_ENV_FILE}" "POSTGRES_CONNECTION"; then
             log "error" "PostgreSQL connection string cannot be empty" "+"
             exit 1
         fi
@@ -503,9 +522,9 @@ prepare_general_environment () {
 
     # Check if need to set up external statistic database
     local use_external_statistic_db='N'
-    if [[ ! -z "${CLICKHOUSE_CONNECTION}" ]]; then
+    if is_env_var_setup "${PROJECT_ENV_FILE}" "CLICKHOUSE_CONNECTION"; then
         use_external_statistic_db='Y'
-    elif [[ -z "${CLICKHOUSE_DB}" ]]; then
+    elif ! is_env_var_setup "${PROJECT_ENV_FILE}" "CLICKHOUSE_DB"; then
         read -p "Do you want to set up an external statistic database? (y/N): " -n 1 use_external_statistic_db < /dev/tty
     fi
 
@@ -516,7 +535,7 @@ prepare_general_environment () {
             "CLICKHOUSE_CONNECTION" "" \
             "Enter the ClickHouse connection: (clickhouse://user:password@host:port/dbname?sslmode=disable)" "$AUTO_YES"
 
-        if [[ -z "${CLICKHOUSE_CONNECTION}" ]]; then
+        if ! is_env_var_setup "${PROJECT_ENV_FILE}" "CLICKHOUSE_CONNECTION"; then
             log "error" "ClickHouse connection string cannot be empty" "+"
             exit 1
         fi
