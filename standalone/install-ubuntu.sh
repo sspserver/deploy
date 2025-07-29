@@ -467,7 +467,7 @@ prepare_general_environment () {
 
     # Check if need to set up external database
     local use_external_db='N'
-    if [[ -z "${POSTGRES_CONNECTION}" ]]; then
+    if [[ ! -z "${POSTGRES_CONNECTION}" ]]; then
         use_external_db='Y'
     elif [[ -z "${POSTGRES_DB}" ]]; then
         read -p "Do you want to set up an external database? (y/N): " -n 1 use_external_db < /dev/tty
@@ -503,7 +503,7 @@ prepare_general_environment () {
 
     # Check if need to set up external statistic database
     local use_external_statistic_db='N'
-    if [[ -z "${CLICKHOUSE_CONNECTION}" ]]; then
+    if [[ ! -z "${CLICKHOUSE_CONNECTION}" ]]; then
         use_external_statistic_db='Y'
     elif [[ -z "${CLICKHOUSE_DB}" ]]; then
         read -p "Do you want to set up an external statistic database? (y/N): " -n 1 use_external_statistic_db < /dev/tty
