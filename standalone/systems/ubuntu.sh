@@ -328,7 +328,7 @@ download_service_files () {
     fi
 
     log "info" "Unzipping service files..." "+"
-    unzip -B "${INSTALL_DIR}/sspserver.zip" -d "${INSTALL_DIR}" >> "${LOG_FILE}" 2>&1
+    unzip -o "${INSTALL_DIR}/sspserver.zip" -d "${INSTALL_DIR}" >> "${LOG_FILE}" 2>&1
     if [[ $? -ne 0 ]]; then
         log "error" "Failed to unzip service files" "+"
         exit 1
@@ -350,10 +350,10 @@ is_env_var_setup () {
     local env_file="$1"
     local var_name="$2"
     
-    if grep -q "^${var_name}=" "${env_file}" 2>/dev/null; then
-        return 0
-    else
+    if grep -q "^${var_name}=[^[:space:]]*[[:graph:]]" "${env_file}" 2>/dev/null; then
         return 1
+    else
+        return 0
     fi
 }
 
@@ -394,7 +394,7 @@ setup_env_file_variable () {
         # GNU sed doesn't require empty string after -i for in-place editing
         if grep -q "^${var_name}=" "${env_file}" 2>/dev/null; then
             # Variable exists but is empty, update it
-            sed "s/^${var_name}=.*/${var_name}=${user_input}/g" "${env_file}"
+            sed -i "s/^${var_name}=.*/${var_name}=${user_input}/g" "${env_file}"
         else
             # Variable not found, append it to the env file
             echo "${var_name}=${user_input}" >> "${env_file}"
