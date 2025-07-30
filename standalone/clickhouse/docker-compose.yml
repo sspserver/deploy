@@ -12,9 +12,6 @@ services:
     container_name: ssp-clickhouse
     restart: always
     pull_policy: always
-    ports:
-      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
-      - "${CLICKHOUSE_TCP_PORT:-9000}:9000"
     healthcheck:
       test: ["CMD", "bash", "-c", "clickhouse-client --query \"SELECT value FROM system.settings WHERE name = 'readonly'\" | grep -q '0'"]
       interval: 10s

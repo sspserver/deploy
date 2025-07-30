@@ -550,9 +550,9 @@ prepare_general_environment () {
             "CLICKHOUSE_USER" "default" \
             "Enter the ClickHouse user" "$AUTO_YES"
 
-        setup_env_file_variable "${PROJECT_ENV_FILE}" \
-            "CLICKHOUSE_PASSWORD" "" \
-            "Enter the ClickHouse password" "$AUTO_YES"
+        # setup_env_file_variable "${PROJECT_ENV_FILE}" \
+        #     "CLICKHOUSE_PASSWORD" "" \
+        #     "Enter the ClickHouse password" "$AUTO_YES"
     fi
 
     # Ensure proper file permissions for .env files
