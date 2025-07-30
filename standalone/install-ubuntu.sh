@@ -526,7 +526,7 @@ prepare_general_environment () {
     if is_env_var_setup "${PROJECT_ENV_FILE}" "CLICKHOUSE_CONNECTION"; then
         log "ok" "External ClickHouse connection is already set up" "+"
         use_external_statistic_db='Y'
-    elif ! is_env_var_setup "${PROJECT_ENV_FILE}" "CLICKHOUSE_DB"; then
+    elif ! is_env_var_setup "${PROJECT_ENV_FILE}" "CLICKHOUSE_USER"; then
         read -p "Do you want to set up an external statistic database? (y/N): " -n 1 use_external_statistic_db < /dev/tty
     fi
 
@@ -542,16 +542,16 @@ prepare_general_environment () {
             exit 1
         fi
     else
-        setup_env_file_variable "${PROJECT_ENV_FILE}" \
-            "CLICKHOUSE_DB" "sspstats" \
-            "Enter the ClickHouse database name" "$AUTO_YES"
+        # setup_env_file_variable "${PROJECT_ENV_FILE}" \
+        #     "CLICKHOUSE_DB" "stats" \
+        #     "Enter the ClickHouse database name" "$AUTO_YES"
 
         setup_env_file_variable "${PROJECT_ENV_FILE}" \
             "CLICKHOUSE_USER" "default" \
             "Enter the ClickHouse user" "$AUTO_YES"
 
         setup_env_file_variable "${PROJECT_ENV_FILE}" \
-            "CLICKHOUSE_PASSWORD" "$(pass_generator 12)" \
+            "CLICKHOUSE_PASSWORD" "" \
             "Enter the ClickHouse password" "$AUTO_YES"
     fi
 
