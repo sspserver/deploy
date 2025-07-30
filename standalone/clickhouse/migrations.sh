@@ -33,4 +33,4 @@ apply_migrations() {
 }
 
 apply_migrations /migrations migrations $PREFIX_REPLACE
-apply_migrations /migrations-gen migrations-gen
+# apply_migrations /migrations-gen migrations-gen
