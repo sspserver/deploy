@@ -587,9 +587,9 @@ prepare_sspservice () {
 
     log "info" "Configuring docker-compose.yml..." "+"
     COMPOSE_FILES=(
-        "${INSTALL_DIR}/docker-compose.base.yml",
-        "${INSTALL_DIR}/eventstream/docker-compose.yml",
-        "${INSTALL_DIR}/nginx/docker-compose.yml",
+        "${INSTALL_DIR}/docker-compose.base.yml"
+        "${INSTALL_DIR}/eventstream/docker-compose.yml"
+        "${INSTALL_DIR}/nginx/docker-compose.yml"
     )
 
     source "${PROJECT_ENV_FILE}" && {
