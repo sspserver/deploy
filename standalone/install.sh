@@ -67,7 +67,7 @@ TEMP_INSTALL_SCRIPT="/tmp/sspserver_installer_$(date +%s)_$$.sh"  # Temporary OS
 
 # Remote repository URL template for OS-specific installers
 # Template variable {{os-name}} will be replaced with actual OS identifier
-RUN_INSTALLER_SCRIPT_URI="https://raw.githubusercontent.com/sspserver/deploy/refs/heads/build/standalone/install-{{os-name}}.sh"
+RUN_INSTALLER_SCRIPT_URI="https://raw.githubusercontent.com/sspserver/deploy/refs/heads/build/standalone/install-{{os-name}}.sh?r=$(date +%s)"
 
 #############################################################################
 # SYSTEM REQUIREMENTS CONFIGURATION
