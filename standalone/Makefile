@@ -1,5 +1,4 @@
-include ./.init.env
-export
-
-run:
-	docker compose -p test up control
+.PHONY: update
+update: ## Update docker compose services
+	@echo "Updating docker compose services..."
+	@docker compose pull
