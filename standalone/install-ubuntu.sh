@@ -487,6 +487,7 @@ prepare_general_environment () {
     # Check if need to set up external database
     local use_external_db='N'
     if is_env_var_setup "${PROJECT_ENV_FILE}" "POSTGRES_CONNECTION"; then
+        log "info"  "External PostgreSQL connection is already set up" "+"
         use_external_db='Y'
     elif ! is_env_var_setup "${PROJECT_ENV_FILE}" "POSTGRES_DB"; then
         read -p "Do you want to set up an external database? (y/N): " -n 1 use_external_db < /dev/tty
@@ -523,6 +524,7 @@ prepare_general_environment () {
     # Check if need to set up external statistic database
     local use_external_statistic_db='N'
     if is_env_var_setup "${PROJECT_ENV_FILE}" "CLICKHOUSE_CONNECTION"; then
+        log "info" "External ClickHouse connection is already set up" "+"
         use_external_statistic_db='Y'
     elif ! is_env_var_setup "${PROJECT_ENV_FILE}" "CLICKHOUSE_DB"; then
         read -p "Do you want to set up an external statistic database? (y/N): " -n 1 use_external_statistic_db < /dev/tty
