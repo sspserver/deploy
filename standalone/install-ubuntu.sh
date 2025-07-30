@@ -351,9 +351,9 @@ is_env_var_setup () {
     local var_name="$2"
     
     if grep -q "^${var_name}=[^[:space:]]*[[:graph:]]" "${env_file}" 2>/dev/null; then
-        return 1
-    else
         return 0
+    else
+        return 1
     fi
 }
 
