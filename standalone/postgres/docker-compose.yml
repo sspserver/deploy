@@ -15,7 +15,7 @@ services:
       timeout: 5s
       retries: 5
     env_file:
-      - postgres/.env
+      - ${PROJECT_DIR}/postgres/.env
 
   ssp:
     depends_on:

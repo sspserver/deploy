@@ -11,7 +11,7 @@ services:
       retries: 3
       start_period: 40s
     env_file:
-      - eventstream/.env
+      - ${PROJECT_DIR}/eventstream/.env
     volumes:
       - ../eventstream/config.hcl:/config.hcl
     environment:

@@ -1,0 +1,285 @@
+name: standalone
+services:
+  api:
+    command:
+      - --run-migrations
+    container_name: ssp-api
+    depends_on:
+      clickhouse-init:
+        condition: service_started
+        required: true
+      clickhouse-server:
+        condition: service_healthy
+        required: true
+      postgres-server:
+        condition: service_healthy
+        required: true
+    environment:
+      LOG_LEVEL: debug
+      MESSANGER_EMAIL_DEFAULT_VAR_NAME: SSP server, Mediadrugs & Geniusrabbit
+      MESSANGER_EMAIL_DEFAULT_VAR_SUPPORT_EMAIL: support@sspserver.org
+      OAUTH2_ACCESS_TOKEN_LIFESPAN: 24h
+      OPTION_AD_DIRECT_TEMPLATE_CODE: ""
+      OPTION_AD_DIRECT_TEMPLATE_URL: https://localhost:8080/direct/{{adunit-code}}
+      OPTION_AD_TEMPLATE_CODE: ""
+      OPTION_RTB_SERVER_DOMAIN: localhost:8080
+      SERVER_PROFILE_LISTEN: :6060
+      SERVER_PROFILE_MODE: net
+      SESSION_LIFETIME: 24h
+      SYSTEM_STATISTIC_CONNECT: clickhouse://default:@clickhouse-server:9000/stats?debug=false
+      SYSTEM_STORAGE_COLLECTION_CACHE_INTERVAL: 30s
+      SYSTEM_STORAGE_DATABASE_MASTER_CONNECT: postgres://devuser:devpass@postgres-server:5432/devdb?sslmode=disable&interval=10s&debug=0
+      SYSTEM_STORAGE_DATABASE_SLAVE_CONNECT: postgres://devuser:devpass@postgres-server:5432/devdb?sslmode=disable&interval=10s&debug=0
+      SYSTEM_STORAGE_SOURCE_UPDATE_TTL: 60s
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    image: ghcr.io/sspserver/api:latest
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 8080
+        published: "8081"
+        protocol: tcp
+    pull_policy: always
+    restart: always
+  clickhouse-init:
+    container_name: ssp-clickhouse-init
+    depends_on:
+      clickhouse-server:
+        condition: service_healthy
+        required: true
+    entrypoint:
+      - ./migrations.sh
+    environment:
+      REPLICATED: "false"
+    image: clickhouse/clickhouse-server:24.5.1.1763
+    networks:
+      default: null
+    pull_policy: always
+    volumes:
+      - type: bind
+        source: ../standalone/clickhouse/migrations.sh
+        target: /migrations.sh
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: ../standalone/clickhouse/migrations/stats
+        target: /migrations
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: ../standalone/clickhouse/migrations/stats-gen
+        target: /migrations-gen
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: volume
+        source: state_data
+        target: /state
+        volume: {}
+  clickhouse-server:
+    cpu_quota: 100000
+    container_name: ssp-clickhouse
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - clickhouse-client --query "SELECT value FROM system.settings WHERE name = 'readonly'" | grep -q '0'
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    image: clickhouse/clickhouse-server:24.5.1.1763
+    mem_limit: "2147483648"
+    networks:
+      default: null
+    pull_policy: always
+    restart: always
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+      nproc: 65535
+    volumes:
+      - type: bind
+        source: ../standalone/clickhouse/config.xml
+        target: /etc/clickhouse-server/config.xml
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: bind
+        source: ../standalone/clickhouse/conf.d
+        target: /etc/clickhouse-server/conf.d
+        read_only: true
+        bind:
+          create_host_path: true
+      - type: volume
+        source: clickhouse_data
+        target: /var/lib/clickhouse
+        volume: {}
+  control:
+    container_name: ssp-control
+    depends_on:
+      api:
+        condition: service_started
+        required: true
+    environment:
+      API_URL: http://api:8080/graphql
+      NEXT_PUBLIC_API_URL: http://localhost:8081/graphql
+      NEXTAUTH_SECRET: devsecret
+      NEXTAUTH_URL: http://localhost:8082
+    image: ghcr.io/sspserver/control:latest
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 3000
+        published: "8082"
+        protocol: tcp
+    pull_policy: always
+    restart: always
+  eventstream:
+    depends_on:
+      clickhouse-server:
+        condition: service_started
+        required: true
+      redis:
+        condition: service_started
+        required: true
+    environment:
+      ES_SOURCE_EVENTS_CONNECT: redis://redis:6379/7?topics=event
+      ES_SOURCE_USERINFO_CONNECT: redis://redis:6379/7?topics=userinfo
+      ES_SOURCE_WINS_CONNECT: redis://redis:6379/7?topics=wins
+      ES_STORE_STATISTIC_DB_CONNECT: clickhouse://default:@clickhouse-server:9000/stats?debug=false
+      SERVER_PROFILE_LISTEN: :6060
+      SERVER_PROFILE_MODE: net
+    healthcheck:
+      test:
+        - CMD
+        - /curl
+        - -f
+        - http://127.0.0.1:6060/health-check
+      timeout: 10s
+      interval: 3s
+      retries: 3
+      start_period: 40s
+    image: geniusrabbit/eventstream:latest
+    networks:
+      default: null
+    pull_policy: always
+    restart: always
+    volumes:
+      - type: bind
+        source: ../eventstream/config.hcl
+        target: /config.hcl
+        bind:
+          create_host_path: true
+  postgres-server:
+    container_name: ssp-postgres
+    environment:
+      POSTGRES_DB: devdb
+      POSTGRES_INITDB_ARGS: ""
+      POSTGRES_PASSWORD: devpass
+      POSTGRES_USER: devuser
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    image: postgres:17.2
+    networks:
+      default: null
+    pull_policy: always
+    restart: always
+    volumes:
+      - type: volume
+        source: postgres_data
+        target: /var/lib/postgresql/data
+        volume: {}
+  redis:
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+    container_name: ssp-redis
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    image: redis:7.4
+    networks:
+      default: null
+    pull_policy: always
+    restart: always
+    volumes:
+      - type: volume
+        source: redis_data
+        target: /data
+        volume: {}
+  ssp:
+    command:
+      - sspserver
+    container_name: ssp-server
+    depends_on:
+      clickhouse-init:
+        condition: service_started
+        required: true
+      clickhouse-server:
+        condition: service_healthy
+        required: true
+      postgres-server:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+    environment:
+      ADSERVER_LOGIC_DIRECT_DEFAULT_URL: https://www.google.com/search?q=site%3Asspserver.org
+      ADSERVER_TRACKER_HOST: localhost:8080
+      ADSTORAGE_CONNECTION: postgres://devuser:devpass@postgres-server:5432/devdb?sslmode=disable&interval=10s&debug=0
+      EVENTSTREAM_EVENT_QUEUE_CONNECTION: redis://redis:6379/7?topics=event
+      EVENTSTREAM_USERINFO_QUEUE_CONNECTION: redis://redis:6379/7?topics=userinfo
+      EVENTSTREAM_WINS_QUEUE_CONNECTION: redis://redis:6379/7?topics=wins
+      LOG_LEVEL: debug
+      SERVER_PROFILE_LISTEN: :8082
+      SERVER_PROFILE_MODE: net
+      SERVICE_DOMAIN: localhost:8080
+      SSP_REQUEST_MAX_PARALLEL_REQUESTS: "10"
+      SSP_REQUEST_TIMEOUT: "10000"
+      STATSDCONN: ""
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    image: ghcr.io/sspserver/sspserver:latest
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 8080
+        published: "8080"
+        protocol: tcp
+    pull_policy: always
+    restart: always
+networks:
+  default:
+    name: standalone_default
+volumes:
+  clickhouse_data:
+    name: standalone_clickhouse_data
+  postgres_data:
+    name: standalone_postgres_data
+  redis_data:
+    name: standalone_redis_data
+  state_data:
+    name: standalone_state_data
+x-mixins:
+  clickhouse-image:
+    image: clickhouse/clickhouse-server:24.5.1.1763
