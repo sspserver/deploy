@@ -53,6 +53,10 @@
 #          the source repository before execution.
 #############################################################################
 
+if [ -z "${PROJECT_DIR}" ]; then
+    export PROJECT_DIR="$(pwd)"
+fi
+
 # Color definitions for console output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

@@ -4,12 +4,12 @@ services:
     restart: always
     pull_policy: always
     depends_on: [redis, clickhouse-server]
-    healthcheck:
-      test: ["CMD", "/curl", "-f", "http://127.0.0.1:6060/health-check"]
-      interval: 3s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    # healthcheck:
+    #   test: ["CMD", "/curl", "-f", "http://127.0.0.1:6060/health-check"]
+    #   interval: 3s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
     env_file:
       - ${PROJECT_DIR}/eventstream/.env
     volumes:
@@ -20,5 +20,5 @@ services:
   ssp:
     depends_on:
       eventstream:
-        condition: service_healthy
+        condition: service_started
         required: true
