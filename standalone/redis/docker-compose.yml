@@ -1,7 +1,6 @@
 services:
   redis:
     image: redis:7.4
-    container_name: ssp-redis
     restart: always
     pull_policy: always
     command: redis-server --appendonly yes

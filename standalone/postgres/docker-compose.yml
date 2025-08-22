@@ -4,7 +4,6 @@ volumes:
 services:
   postgres-server:
     image: postgres:17.2
-    container_name: ssp-postgres
     restart: always
     pull_policy: always
     volumes:

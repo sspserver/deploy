@@ -9,7 +9,6 @@ x-mixins:
 services:
   clickhouse-server:
     <<: *clickhouse-image
-    container_name: ssp-clickhouse
     restart: always
     pull_policy: always
     healthcheck:
@@ -31,7 +30,6 @@ services:
 
   clickhouse-init:
     <<: *clickhouse-image
-    container_name: ssp-clickhouse-init
     pull_policy: always
     entrypoint: [ './migrations.sh' ]
     depends_on:

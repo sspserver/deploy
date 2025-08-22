@@ -1,7 +1,6 @@
 services:
   proxy:
     image: nginx:1.27
-    container_name: ssp-webserver
     restart: always
     pull_policy: always
     ports:

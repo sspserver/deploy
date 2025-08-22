@@ -126,6 +126,9 @@ services:
       api:
         condition: service_started
         required: true
+      ssp:
+        condition: service_started
+        required: true
     environment:
       API_URL: http://api:8080/graphql
       NEXT_PUBLIC_API_URL: http://localhost:8081/graphql
@@ -150,22 +153,23 @@ services:
         condition: service_started
         required: true
     environment:
+      LOG_LEVEL: debug
       ES_SOURCE_EVENTS_CONNECT: redis://redis:6379/7?topics=event
       ES_SOURCE_USERINFO_CONNECT: redis://redis:6379/7?topics=userinfo
       ES_SOURCE_WINS_CONNECT: redis://redis:6379/7?topics=wins
       ES_STORE_STATISTIC_DB_CONNECT: clickhouse://default:@clickhouse-server:9000/stats?debug=false
       SERVER_PROFILE_LISTEN: :6060
       SERVER_PROFILE_MODE: net
-    healthcheck:
-      test:
-        - CMD
-        - /curl
-        - -f
-        - http://127.0.0.1:6060/health-check
-      timeout: 10s
-      interval: 3s
-      retries: 3
-      start_period: 40s
+    # healthcheck:
+    #   test:
+    #     - CMD
+    #     - /curl
+    #     - -f
+    #     - http://127.0.0.1:6060/health-check
+    #   timeout: 10s
+    #   interval: 3s
+    #   retries: 3
+    #   start_period: 40s
     image: geniusrabbit/eventstream:latest
     networks:
       default: null
@@ -173,7 +177,7 @@ services:
     restart: always
     volumes:
       - type: bind
-        source: ../eventstream/config.hcl
+        source: ../standalone/eventstream/config.hcl
         target: /config.hcl
         bind:
           create_host_path: true
@@ -242,10 +246,13 @@ services:
       redis:
         condition: service_healthy
         required: true
+      eventstream:
+        condition: service_started
+        required: true
     environment:
       ADSERVER_LOGIC_DIRECT_DEFAULT_URL: https://www.google.com/search?q=site%3Asspserver.org
       ADSERVER_TRACKER_HOST: localhost:8080
-      ADSTORAGE_CONNECTION: postgres://devuser:devpass@postgres-server:5432/devdb?sslmode=disable&interval=10s&debug=0
+      ADSTORAGE_CONNECTION: postgres://devuser:devpass@postgres-server:5432/devdb?sslmode=disable&interval=10s&debug=1
       EVENTSTREAM_EVENT_QUEUE_CONNECTION: redis://redis:6379/7?topics=event
       EVENTSTREAM_USERINFO_QUEUE_CONNECTION: redis://redis:6379/7?topics=userinfo
       EVENTSTREAM_WINS_QUEUE_CONNECTION: redis://redis:6379/7?topics=wins
@@ -258,7 +265,9 @@ services:
       STATSDCONN: ""
     extra_hosts:
       - host.docker.internal=host-gateway
+    # image: ssp-project/sspserver
     image: ghcr.io/sspserver/sspserver:latest
+    restart: always
     networks:
       default: null
     ports:
@@ -267,7 +276,6 @@ services:
         published: "8080"
         protocol: tcp
     pull_policy: always
-    restart: always
 networks:
   default:
     name: standalone_default

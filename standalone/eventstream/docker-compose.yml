@@ -13,7 +13,12 @@ services:
     env_file:
       - ${PROJECT_DIR}/eventstream/.env
     volumes:
-      - ../eventstream/config.hcl:/config.hcl
+      - ${PROJECT_DIR}/eventstream/config.hcl:/config.hcl
     environment:
       - SERVER_PROFILE_MODE=net
       - SERVER_PROFILE_LISTEN=:6060
+  ssp:
+    depends_on:
+      eventstream:
+        condition: service_healthy
+        required: true

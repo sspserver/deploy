@@ -29,6 +29,10 @@ build-compose: build-env ## Build the Docker Compose services
 run: ## Run the control service
 	$(DOCKER_COMPOSE) up control
 
+.PHONY: stop
+stop: ## Stop the Docker Compose services
+	$(DOCKER_COMPOSE) down
+
 .PHONY: db-cli
 db-cli: ## Open development database
 	$(DOCKER_COMPOSE) exec $(DOCKER_DATABASE_NAME) psql -U $(POSTGRES_USER) $(POSTGRES_DB)

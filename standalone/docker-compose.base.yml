@@ -4,7 +4,6 @@ volumes:
 services:
   ssp:
     image: ghcr.io/sspserver/sspserver:latest
-    container_name: ssp-server
     restart: always
     pull_policy: always
     command: ["sspserver"]
@@ -17,7 +16,6 @@ services:
 
   api:
     image: ghcr.io/sspserver/api:latest
-    container_name: ssp-api
     restart: always
     pull_policy: always
     command: ["--run-migrations"]
@@ -30,7 +28,6 @@ services:
 
   control:
     image: ghcr.io/sspserver/control:latest
-    container_name: ssp-control
     restart: always
     pull_policy: always
     env_file:
