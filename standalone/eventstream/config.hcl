@@ -56,14 +56,14 @@ streams {
       // State Location
       "platform_type=pl:uint8",             // UInt8
       "domain=dm",                          // String
-      "app_id:int",                         // UInt64
+      "app_id=app:int",                     // UInt64
       "zone_id=z:int",                      // UInt64
       "format_id=fmt:uint32",               // UInt32
       "ad_w=aw:uint32",                     // UInt32
       "ad_h=ah:uint32",                     // UInt32
-      "src_url=su",                         // String
-      "win_url=wu",                         // String
-      "url=u",                              // String
+      # "src_url=su",                         // String
+      # "win_url=wu",                         // String
+      # "url=u",                              // String
       // Money section
       "pricing_model=pm:uint8",             // UInt8
       "purchase_view_price=pvpr:uint",      // UInt64
