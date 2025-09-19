@@ -66,10 +66,13 @@ streams {
       # "url=u",                              // String
       // Money section
       "pricing_model=pm:uint8",             // UInt8
+      "purchase_imp_price=pipr:uint",       // UInt64
       "purchase_view_price=pvpr:uint",      // UInt64
       "purchase_click_price=pcpr:uint",     // UInt64
+      "potential_imp_price=ptipr:uint",     // UInt64
       "potential_view_price=ptvpr:uint",    // UInt64
       "potential_click_price=ptcpr:uint",   // UInt64
+      "imp_price=ipr:uint",                 // UInt64
       "view_price=vpr:uint",                // UInt64
       "click_price=cpr:uint",               // UInt64
       // User IDENTITY
@@ -115,6 +118,7 @@ streams {
         type = "counter"
         tags {
           action   = "{{e}}"
+          country  = "{{cc}}"
           language = "{{lng}}"
         }
       }
@@ -196,6 +200,7 @@ streams {
         type = "counter"
         tags {
           action   = "{{e}}"
+          country  = "{{cc}}"
           language = "{{lng}}"
         }
       }

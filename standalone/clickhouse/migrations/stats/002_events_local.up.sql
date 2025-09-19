@@ -31,14 +31,20 @@ CREATE TABLE IF NOT EXISTS stats.events_local (
  , url                      String                      TTL timemark + INTERVAL 7 DAYS -- Non modified target URL
  -- Money
  , pricing_model            UInt8                       -- Display As CPM/CPC/CPA/CPI
+ , purchase_imp_price       UInt64                      -- Money paid to the source
+ , purchase_imp_price_f64   Float64                     ALIAS toFloat64(purchase_imp_price) / 1000000000
  , purchase_view_price      UInt64                      -- Money paid to the source
  , purchase_view_price_f64  Float64                     ALIAS toFloat64(purchase_view_price) / 1000000000
  , purchase_click_price     UInt64
  , purchase_click_price_f64 Float64                     ALIAS toFloat64(purchase_click_price) / 1000000000
+ , potential_imp_price      UInt64                      -- Additional price which can we have
+ , potential_imp_price_f64  Float64                     ALIAS toFloat64(potential_imp_price) / 1000000000
  , potential_view_price     UInt64                      -- Additional price which can we have
  , potential_view_price_f64 Float64                     ALIAS toFloat64(potential_view_price) / 1000000000
  , potential_click_price    UInt64
  , potential_click_price_f64 Float64                    ALIAS toFloat64(potential_click_price) / 1000000000
+ , imp_price                UInt64                      -- Price for impression only (for CPM)
+ , imp_price_f64            Float64                     ALIAS toFloat64(imp_price) / 1000000000
  , view_price               UInt64                      -- Total price with all expencies per action
  , view_price_f64           Float64                     ALIAS toFloat64(view_price) / 1000000000
  , click_price              UInt64

@@ -23,6 +23,8 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS stats.v_aggregated_counters_view TO stats
     -- Money
     , pricing_model
     , CASE
+        WHEN pricing_model = 1 AND status = 1 AND event IN ('impression', 'direct') THEN
+          potential_imp_price * sign
         WHEN pricing_model = 1 AND status = 1 AND event IN ('view', 'direct') THEN
           potential_view_price * sign
         WHEN pricing_model = 2 AND status IN (0, 1) AND event IN ('click') THEN
@@ -31,6 +33,8 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS stats.v_aggregated_counters_view TO stats
       END AS potential_revenue
     , CASE
         WHEN pricing_model = 1 AND status = 2 AND event IN ('impression', 'direct') THEN
+          imp_price * sign
+        WHEN pricing_model = 1 AND status = 2 AND event IN ('view', 'direct') THEN
           view_price * sign
         WHEN pricing_model = 2 AND status = 2 AND event IN ('click') THEN
           click_price * sign
@@ -38,12 +42,16 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS stats.v_aggregated_counters_view TO stats
       END AS failed_revenue
     , CASE
         WHEN pricing_model = 1 AND status = 3 AND event IN ('impression', 'direct') THEN
+          imp_price * sign
+        WHEN pricing_model = 1 AND status = 3 AND event IN ('view', 'direct') THEN
           view_price * sign
         WHEN pricing_model = 2 AND status = 3 AND event IN ('click') THEN
           click_price * sign
         ELSE 0
       END AS compromised_revenue
     , CASE
+        WHEN pricing_model = 1 AND status = 1 AND event IN ('impression', 'direct') THEN
+          imp_price * sign
         WHEN pricing_model = 1 AND status = 1 AND event IN ('view', 'direct') THEN
           view_price * sign
         WHEN pricing_model = 2 AND status IN (0, 1) AND event IN ('click') THEN

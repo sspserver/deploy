@@ -6,20 +6,25 @@ Automated deployment scripts for SSP Server using standalone mode with cross-pla
 
 ### Interactive Installation (Recommended)
 
-```bash
-# Download and run locally for interactive mode
+> Download and run locally for interactive mode
+
+```sh
 curl -sSL https://raw.githubusercontent.com/sspserver/deploy/refs/heads/main/standalone/install.sh -o install.sh
 chmod +x install.sh
 ./install.sh
+```
 
-# Or use process substitution for interactive mode
+> Or use process substitution for interactive mode
+
+```sh
 bash <(curl -sSL https://raw.githubusercontent.com/sspserver/deploy/refs/heads/main/standalone/install.sh)
 ```
 
 ### Automated Installation (No Prompts)
 
-```bash
-# For automated deployment without user interaction
+> For automated deployment without user interaction
+
+```sh
 curl -sSL https://raw.githubusercontent.com/sspserver/deploy/refs/heads/main/standalone/install.sh | bash -s -- -y
 ```
 
@@ -157,11 +162,15 @@ tail -f /var/log/sspserver/sspserver_1click_standalone.log
 
 To update SSP Server, simply re-run the installation script:
 
-```bash
-# Interactive update
-bash <(curl -sSL https://raw.githubusercontent.com/sspserver/deploy/refs/heads/main/standalone/install.sh)
+### Interactive update
 
-# Automated update
+```sh
+bash <(curl -sSL https://raw.githubusercontent.com/sspserver/deploy/refs/heads/main/standalone/install.sh)
+```
+
+### Automated update
+
+```sh
 curl -sSL https://raw.githubusercontent.com/sspserver/deploy/refs/heads/main/standalone/install.sh | bash -s -- -y
 ```
 
