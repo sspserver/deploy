@@ -50,6 +50,7 @@ jobs:
         run: |
           echo "Downloading AdView sources from ${{ env.ADVIEW_DOWNLOAD_URL }}"
           wget -O adview.zip ${{ env.ADVIEW_DOWNLOAD_URL }}
+          mkdir -p ${{ env.ABS_BUILD_DIR }}/adview-src
           unzip adview.zip -d ${{ env.ABS_BUILD_DIR }}/adview-src
           rm adview.zip
 
