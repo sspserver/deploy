@@ -14,8 +14,7 @@ env:
   DEPLOY_TAG_VALUE: ${{ github.ref_name }}
   SYSTEM_LIST: centos debian ubuntu
   BUILD_DIR: .build
-  ABS_BUILD_DIR: ${{ github.workspace }}/.build
-  ADVIEW_DOWNLOAD_URL: https://github.com/geniusrabbit/adview/archive/refs/heads/main.zip
+  DOWNLOAD_URL: https://github.com/geniusrabbit/adview/archive/refs/heads/main.zip
 
 jobs:
   build:
@@ -42,31 +41,27 @@ jobs:
           TAG=$(git describe --tags --exact-match 2>/dev/null || echo $GITHUB_SHA)
           echo "DEPLOY_TAG_VALUE=${TAG}" >> $GITHUB_ENV
 
-      - name: Absolute BUILD_DIR path
-        run: |
-          echo "ABS_BUILD_DIR=$(pwd)/${{ env.BUILD_DIR }}" >> $GITHUB_ENV
-
       - name: Download AdView sources
         run: |
-          echo "Downloading AdView sources from ${{ env.ADVIEW_DOWNLOAD_URL }}"
-          wget -O adview.zip ${{ env.ADVIEW_DOWNLOAD_URL }}
-          unzip adview.zip -d ${{ env.ABS_BUILD_DIR }}/adview-src
+          echo "Downloading AdView sources from ${{ env.DOWNLOAD_URL }}"
+          wget -O adview.zip ${{ env.DOWNLOAD_URL }}
+          unzip adview.zip -d ./${{ env.BUILD_DIR }}/adview-src
           rm adview.zip
 
-      - name: Zip AdView `packages/native` & `packages/popunder` into ${{ env.BUILD_DIR }}/adview-packages.zip
+      - name: Zip AdView packages/native & packages/popunder into ${{ env.BUILD_DIR }}/adview-packages.zip
         run: |
-          echo "Packing AdView packages into ${{ env.ABS_BUILD_DIR }}/adview-packages.zip"
-          ls -la ${{ env.ABS_BUILD_DIR }}/adview-src/
-          ls -la ${{ env.ABS_BUILD_DIR }}/adview-src/adview-main/
-          cd ${{ env.ABS_BUILD_DIR }}/adview-src/adview-main/ && \
-            zip -r ${{ env.ABS_BUILD_DIR }}/adview-packages.zip native popunder
-          rm -rf ${{ env.ABS_BUILD_DIR }}/adview-src
+          echo "Packing AdView packages into ${{ env.BUILD_DIR }}/adview-packages.zip"
+          cd ${{ env.BUILD_DIR }}/adview-src/adview-main/ && \
+            zip -r ../../adview-packages.zip native popunder
+          cd -
+          rm -rf ${{ env.BUILD_DIR }}/adview-src
 
       - name: Pack standalone scripts into archives
         run: |
           for system in $SYSTEM_LIST; do
             echo "Packing standalone scripts for $system"
-            build_dir="${{ env.ABS_BUILD_DIR }}/standalone/$system"
+            cur_dir=$(pwd)
+            build_dir="${cur_dir}/${{ env.BUILD_DIR }}/standalone/$system"
 
             echo "Create build directory: $build_dir"
             mkdir -p ${build_dir}
@@ -91,7 +86,7 @@ jobs:
             cp -r standalone/nginx "${build_dir}/"
 
             echo "Copy system specific files for installation"
-            cp -r standalone/systems/$system.sh ${{ env.ABS_BUILD_DIR }}/standalone/install-$system.sh
+            cp -r standalone/systems/$system.sh ${{ env.BUILD_DIR }}/standalone/install-$system.sh
 
             echo "Copy docker-compose and init env files"
             cp    standalone/docker-compose.base.yml "${build_dir}/"
