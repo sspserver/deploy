@@ -59,7 +59,8 @@ jobs:
           echo "Packing AdView packages into ${{ env.ABS_BUILD_DIR }}/adview-packages.zip"
           ls -la ${{ env.ABS_BUILD_DIR }}/adview-src/
           ls -la ${{ env.ABS_BUILD_DIR }}/adview-src/adview-main/
-          cd ${{ env.ABS_BUILD_DIR }}/adview-src/adview-main/ && \
+          ls -la ${{ env.ABS_BUILD_DIR }}/adview-src/adview-main/packages/
+          cd ${{ env.ABS_BUILD_DIR }}/adview-src/adview-main/packages/ && \
             zip -r ${{ env.ABS_BUILD_DIR }}/adview-packages.zip native popunder
           rm -rf ${{ env.ABS_BUILD_DIR }}/adview-src
 
