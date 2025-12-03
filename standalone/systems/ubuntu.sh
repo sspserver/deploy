@@ -373,6 +373,7 @@ setup_env_file_variable () {
     local prompt_message="$4"
     local auto_confirm="$5"
     local return_value="${default_value}"
+    local no_return="${$6:-false}"
 
     # Check if variable is already set in env file (non-empty value)
     if grep -q "^${var_name}=[^[:space:]]*[[:graph:]]" "${env_file}" 2>/dev/null; then
@@ -392,16 +393,19 @@ setup_env_file_variable () {
         # GNU sed doesn't require empty string after -i for in-place editing
         if grep -q "^${var_name}=" "${env_file}" 2>/dev/null; then
             # Variable exists but is empty, update it
-            sed -i "s/^${var_name}=.*/${var_name}=${user_input}/g" "${env_file}"
+            sed -i "s/^${var_name}=.*/${var_name}=\"${user_input}\"/g" "${env_file}"
         else
             # Variable not found, append it to the env file
-            echo "${var_name}=${user_input}" >> "${env_file}"
+            echo "${var_name}=\"${user_input}\"" >> "${env_file}"
         fi
 
         log "info" "Set environment variable '${var_name}' to '${user_input}' in ${env_file}" "+"
     fi
 
     # Return the value for further use
+    if [[ "$no_return" == "true" ]]; then
+        return
+    fi
     echo "${return_value}"
 }
 
@@ -563,14 +567,16 @@ prepare_general_environment () {
     log "info" "Setting up advertisement codes..." "+"
 
     banner_code=$(cat "${INSTALL_DIR}/app-api/basic.ad.tmpl" 2>/dev/null | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+    echo "Banner code: $banner_code"
     setup_env_file_variable "${PROJECT_ENV_FILE}" \
         "API_OPTION_AD_TEMPLATE_CODE" "${banner_code}" \
-        "" "true"
+        "" "true" "false"
 
     popunder_code=$(cat "${INSTALL_DIR}/app-api/popunder.ad.tmpl" 2>/dev/null | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+    echo "Popunder code: $popunder_code"
     setup_env_file_variable "${PROJECT_ENV_FILE}" \
         "API_OPTION_AD_DIRECT_TEMPLATE_CODE" "${popunder_code}" \
-        "" "true"
+        "" "true" "false"
 
     # Ensure proper file permissions for .env files
     if ! chmod 644 "${PROJECT_ENV_FILE}"; then
