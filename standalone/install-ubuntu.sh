@@ -404,7 +404,7 @@ setup_env_file_variable_base () {
     local env_file="$1"
     local var_name="$2"
     local value="$3"
-    local prepared_value=$(echo "$value" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+    local prepared_value=$(echo "$value" | sed 's/\/\\/g' | sed 's/"/\"/g')
 
     # GNU sed doesn't require empty string after -i for in-place editing
     if grep -q "^${var_name}=" "${env_file}" 2>/dev/null; then
