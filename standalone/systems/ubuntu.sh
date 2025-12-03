@@ -171,18 +171,16 @@ install_dependencies () {
     log "info" "Updating package list..." "+"
     apt-get -y update >> "${LOG_FILE}" 2>&1
 
-    log "info" "Installing dependencies..." "+"
-    apt-get -y install \
-        curl \
-        unzip \
-        jq \
-        git \
-        build-essential \
-        ca-certificates \
-        gnupg \
-        lsb-release \
-        gettext \
-        envsubst >> "${LOG_FILE}" 2>&1
+    log "info" "Installing packages..." "+"
+
+    for pkg in curl unzip jq git build-essential ca-certificates gnupg lsb-release gettext; do
+        if dpkg -s "$pkg" &> /dev/null; then
+            log "ok" "Package '$pkg' is already installed." "+"
+        else
+            log "info" "Installing package '$pkg'..." "+"
+            apt-get -y install "$pkg" >> "${LOG_FILE}" 2>&1
+        fi
+    done
 }
 
 # Function: install_systemd_dependency
@@ -327,7 +325,7 @@ download_service_files () {
         exit 1
     fi
 
-    log "info" "Unzipping service files..." "+"
+    log "info" "Unzipping service files: ${INSTALL_DIR}/sspserver.zip ..." "+"
     unzip -o "${INSTALL_DIR}/sspserver.zip" -d "${INSTALL_DIR}" >> "${LOG_FILE}" 2>&1
     if [[ $? -ne 0 ]]; then
         log "error" "Failed to unzip service files" "+"
