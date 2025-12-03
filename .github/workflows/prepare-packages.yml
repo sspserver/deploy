@@ -67,11 +67,11 @@ jobs:
             echo "Packing standalone scripts for $system"
             build_dir="${{ env.ABS_BUILD_DIR }}/standalone/$system"
 
-            echo "Copy JSSDK Dockerfile"
-            cp deploy/jssdk.dockerfile "${build_dir}/$system"
-
             echo "Create build directory: $build_dir"
             mkdir -p ${build_dir}
+
+            echo "Copy JSSDK Dockerfile"
+            cp deploy/jssdk.dockerfile "${build_dir}/$system"
 
             echo "Copy system specific files"
             cp -r standalone/init.d "${build_dir}/"
