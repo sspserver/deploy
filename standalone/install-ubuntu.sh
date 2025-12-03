@@ -409,7 +409,7 @@ setup_env_file_variable_base () {
     # GNU sed doesn't require empty string after -i for in-place editing
     if grep -q "^${var_name}=" "${env_file}" 2>/dev/null; then
         # Variable exists but is empty, update it
-        local escaped=$(printf '%s' "$value" | sed 's/[&/\]/\\&/g')
+        local escaped=$(printf '%s' "$prepared_value" | sed 's/[&/\]/\\&/g')
         sed -i "s/^${var_name}=.*/${var_name}=\"${escaped}\"/g" "${env_file}"
     else
         # Variable not found, append it to the env file
