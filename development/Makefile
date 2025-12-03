@@ -23,6 +23,7 @@ build-compose: build-env ## Build the Docker Compose services
 		-f ../standalone/postgres/docker-compose.yml \
 		-f ../standalone/clickhouse/docker-compose.yml \
 		-f ../standalone/redis/docker-compose.yml \
+		-f ../standalone/jssdk/docker-compose.yml \
 		config | sed "s|$$(dirname $$PWD)|..|g" > docker-compose.yml
 
 .PHONY: run

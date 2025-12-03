@@ -3,7 +3,6 @@ services:
   api:
     command:
       - --run-migrations
-    container_name: ssp-api
     depends_on:
       clickhouse-init:
         condition: service_started
@@ -44,7 +43,6 @@ services:
     pull_policy: always
     restart: always
   clickhouse-init:
-    container_name: ssp-clickhouse-init
     depends_on:
       clickhouse-server:
         condition: service_healthy
@@ -82,7 +80,6 @@ services:
         volume: {}
   clickhouse-server:
     cpu_quota: 100000
-    container_name: ssp-clickhouse
     healthcheck:
       test:
         - CMD
@@ -121,7 +118,6 @@ services:
         target: /var/lib/clickhouse
         volume: {}
   control:
-    container_name: ssp-control
     depends_on:
       api:
         condition: service_started
@@ -131,9 +127,9 @@ services:
         required: true
     environment:
       API_URL: http://api:8080/graphql
-      NEXT_PUBLIC_API_URL: http://localhost:8081/graphql
+      NEXT_PUBLIC_API_URL: https://localhost:8081/graphql
       NEXTAUTH_SECRET: devsecret
-      NEXTAUTH_URL: http://localhost:8082
+      NEXTAUTH_URL: https://localhost:8082
     image: ghcr.io/sspserver/control:latest
     networks:
       default: null
@@ -153,23 +149,12 @@ services:
         condition: service_started
         required: true
     environment:
-      LOG_LEVEL: debug
       ES_SOURCE_EVENTS_CONNECT: redis://redis:6379/7?topics=event
       ES_SOURCE_USERINFO_CONNECT: redis://redis:6379/7?topics=userinfo
       ES_SOURCE_WINS_CONNECT: redis://redis:6379/7?topics=wins
       ES_STORE_STATISTIC_DB_CONNECT: clickhouse://default:@clickhouse-server:9000/stats?debug=false
       SERVER_PROFILE_LISTEN: :6060
       SERVER_PROFILE_MODE: net
-    # healthcheck:
-    #   test:
-    #     - CMD
-    #     - /curl
-    #     - -f
-    #     - http://127.0.0.1:6060/health-check
-    #   timeout: 10s
-    #   interval: 3s
-    #   retries: 3
-    #   start_period: 40s
     image: geniusrabbit/eventstream:latest
     networks:
       default: null
@@ -177,12 +162,28 @@ services:
     restart: always
     volumes:
       - type: bind
-        source: ../standalone/eventstream/config.hcl
+        source: ../development/eventstream/config.hcl
         target: /config.hcl
         bind:
           create_host_path: true
+  jssdk:
+    build:
+      context: ../standalone
+      dockerfile: ./jssdk.dockerfile
+    environment:
+      ADREQUEST_DYNAMIC_URL: ""
+      JSSDK_DOMAIN: localhost:8085
+      SERVER_ROOT: /var/www/html
+    extra_hosts:
+      - host.docker.internal=host-gateway
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 80
+        published: "8085"
+        protocol: tcp
   postgres-server:
-    container_name: ssp-postgres
     environment:
       POSTGRES_DB: devdb
       POSTGRES_INITDB_ARGS: ""
@@ -210,7 +211,6 @@ services:
       - redis-server
       - --appendonly
       - "yes"
-    container_name: ssp-redis
     healthcheck:
       test:
         - CMD
@@ -232,7 +232,6 @@ services:
   ssp:
     command:
       - sspserver
-    container_name: ssp-server
     depends_on:
       clickhouse-init:
         condition: service_started
@@ -240,34 +239,34 @@ services:
       clickhouse-server:
         condition: service_healthy
         required: true
+      eventstream:
+        condition: service_started
+        required: true
       postgres-server:
         condition: service_healthy
         required: true
       redis:
         condition: service_healthy
         required: true
-      eventstream:
-        condition: service_started
-        required: true
     environment:
+      ADSERVER_ADINFO_ABOUT_AD_URL: https://localhost:8082/about/ad?adid={adid}&campaignid={campaignid}
+      ADSERVER_ADINFO_COMPLAINT_AD_URL: https://localhost:8082/ad/info?adid={adid}&campaignid={campaignid}&reason={reason}
+      ADSERVER_ADSOURCE_REQUEST_MAX_PARALLEL_REQUESTS: "10"
+      ADSERVER_ADSOURCE_REQUEST_TIMEOUT: "10000"
+      ADSERVER_ADSTORAGE_CONNECTION: postgres://devuser:devpass@postgres-server:5432/devdb?sslmode=disable&interval=10s&debug=0
+      ADSERVER_EVENTPIPELINE_EVENT_QUEUE_CONNECTION: redis://redis:6379/7?topics=event
+      ADSERVER_EVENTPIPELINE_USERINFO_QUEUE_CONNECTION: redis://redis:6379/7?topics=userinfo
+      ADSERVER_EVENTPIPELINE_WINS_QUEUE_CONNECTION: redis://redis:6379/7?topics=wins
       ADSERVER_LOGIC_DIRECT_DEFAULT_URL: https://www.google.com/search?q=site%3Asspserver.org
       ADSERVER_TRACKER_HOST: localhost:8080
-      ADSTORAGE_CONNECTION: postgres://devuser:devpass@postgres-server:5432/devdb?sslmode=disable&interval=10s&debug=1
-      EVENTSTREAM_EVENT_QUEUE_CONNECTION: redis://redis:6379/7?topics=event
-      EVENTSTREAM_USERINFO_QUEUE_CONNECTION: redis://redis:6379/7?topics=userinfo
-      EVENTSTREAM_WINS_QUEUE_CONNECTION: redis://redis:6379/7?topics=wins
       LOG_LEVEL: debug
       SERVER_PROFILE_LISTEN: :8082
       SERVER_PROFILE_MODE: net
       SERVICE_DOMAIN: localhost:8080
-      SSP_REQUEST_MAX_PARALLEL_REQUESTS: "10"
-      SSP_REQUEST_TIMEOUT: "10000"
       STATSDCONN: ""
     extra_hosts:
       - host.docker.internal=host-gateway
-    # image: ssp-project/sspserver
     image: ghcr.io/sspserver/sspserver:latest
-    restart: always
     networks:
       default: null
     ports:
@@ -276,6 +275,7 @@ services:
         published: "8080"
         protocol: tcp
     pull_policy: always
+    restart: always
 networks:
   default:
     name: standalone_default

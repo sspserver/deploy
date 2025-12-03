@@ -10,6 +10,7 @@ services:
       - ssp
       - api
       - control
+      - jssdk
     volumes:
       - ./nginx:/etc/nginx/templates
       - ./nginx/ssl:/etc/nginx/ssl
