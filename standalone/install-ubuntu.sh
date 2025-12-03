@@ -562,12 +562,12 @@ prepare_general_environment () {
     # Put advertisement codes to environment file with escaping '\n', '\\', '\"'
     log "info" "Setting up advertisement codes..." "+"
 
-    banner_code=$(cat "${INSTALL_DIR}/app-api/basic.ad.tmpl" 2>/dev/null | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g' || echo "")
+    banner_code=$(cat "${INSTALL_DIR}/app-api/basic.ad.tmpl" 2>/dev/null | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
     setup_env_file_variable "${PROJECT_ENV_FILE}" \
         "API_OPTION_AD_TEMPLATE_CODE" "${banner_code}" \
         "" "true"
 
-    popunder_code=$(cat "${INSTALL_DIR}/app-api/popunder.ad.tmpl" 2>/dev/null | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g' || echo "")
+    popunder_code=$(cat "${INSTALL_DIR}/app-api/popunder.ad.tmpl" 2>/dev/null | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
     setup_env_file_variable "${PROJECT_ENV_FILE}" \
         "API_OPTION_AD_DIRECT_TEMPLATE_CODE" "${popunder_code}" \
         "" "true"
