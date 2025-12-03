@@ -404,19 +404,19 @@ setup_env_file_variable_base () {
     local env_file="$1"
     local var_name="$2"
     local value="$3"
+    local prepared_value=$(echo "$value" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
 
     # GNU sed doesn't require empty string after -i for in-place editing
     if grep -q "^${var_name}=" "${env_file}" 2>/dev/null; then
         # Variable exists but is empty, update it
-        local prepared_value=$(echo "$value" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
-        sed -i "s/^${var_name}=.*/${var_name}=\"${prepared_value}\"/g" "${env_file}"
+        local prepared_value2=$(echo "$prepared_value" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+        sed -i "s/^${var_name}=.*/${var_name}=\"${prepared_value2}\"/g" "${env_file}"
     else
         # Variable not found, append it to the env file
-        local prepared_value=$(echo "$value" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
         echo "${var_name}=\"${prepared_value}\"" >> "${env_file}"
     fi
 
-    log "info" "Set environment variable '${var_name}' to '${value}' in ${env_file}" "+"
+    log "info" "Set environment variable '${var_name}' to '${prepared_value}' in ${env_file}" "+"
 }
 
 # Function: prepare_environment_file
