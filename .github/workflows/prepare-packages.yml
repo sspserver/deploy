@@ -67,6 +67,9 @@ jobs:
             echo "Packing standalone scripts for $system"
             build_dir="${{ env.ABS_BUILD_DIR }}/standalone/$system"
 
+            echo "Copy JSSDK Dockerfile"
+            cp deploy/jssdk.dockerfile "${build_dir}/$system"
+
             echo "Create build directory: $build_dir"
             mkdir -p ${build_dir}
 
@@ -82,6 +85,7 @@ jobs:
             cp -r standalone/app-ssp        "${build_dir}/"
             cp -r standalone/app-api        "${build_dir}/"
             cp -r standalone/app-control    "${build_dir}/"
+            cp -r standalone/jssdk          "${build_dir}/"
 
             echo "Copy eventstream configs"
             cp -r standalone/eventstream "${build_dir}/"

@@ -470,6 +470,12 @@ prepare_general_environment () {
             "Enter the domain for the SSP AD server" "$AUTO_YES"
     )
 
+    SSPSERVER_JSSDK_DOMAIN=$(
+        setup_env_file_variable "${PROJECT_ENV_FILE}" \
+            "SSPSERVER_JSSDK_DOMAIN" "jssdk.${SSPSERVER_PROJECT_DOMAIN}" \
+            "Enter the domain for the SSP JSSDK server" "$AUTO_YES"
+    )
+
     setup_env_file_variable "${PROJECT_ENV_FILE}" \
         "SSPSERVER_TRACKER_DOMAIN" "${SSPSERVER_AD_DOMAIN}" \
         "Enter the domain for the SSP Tracker server" "$AUTO_YES"
@@ -592,6 +598,7 @@ prepare_sspservice () {
         "${INSTALL_DIR}/docker-compose.base.yml"
         "${INSTALL_DIR}/eventstream/docker-compose.yml"
         "${INSTALL_DIR}/nginx/docker-compose.yml"
+        "${INSTALL_DIR}/jssdk/docker-compose.yml"
     )
 
     source "${PROJECT_ENV_FILE}" && {

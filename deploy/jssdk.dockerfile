@@ -14,15 +14,24 @@ RUN ls -la /tmp/adview/src/
 # Build packages/native project into /tmp/adview-dist/native
 RUN cd /tmp/adview/src/native && \
     npm install && \
-    npm run build --prod --output-path=/tmp/adview-dist/native
+    npm run build --omit=dev --prod
 
 # Build packages/popunder project into /tmp/adview-dist/popunder
 RUN cd /tmp/adview/src/popunder && \
     npm install && \
-    npm run build --prod --output-path=/tmp/adview-dist/popunder
+    npm install @swc/core -D && \
+    npm run build --omit=dev --prod
+
+# Prepare the final distribution directory
+RUN mkdir -p /tmp/adview-dist
+RUN cp -r /tmp/adview/src/native/dist/* /tmp/adview-dist/
+RUN cp -r /tmp/adview/src/popunder/dist/* /tmp/adview-dist/
+RUN echo "404 Not Found" > /tmp/adview-dist/404.html
+RUN echo "" > /tmp/adview-dist/index.html
+RUN ls -la /tmp/adview-dist
 
 FROM joseluisq/static-web-server:latest
 
-COPY --from=build /tmp/jssdk-dist /var/public
+COPY --from=build /tmp/adview-dist /var/www/html
 
 EXPOSE 80

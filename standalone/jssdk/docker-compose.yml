@@ -1,0 +1,12 @@
+services:
+  jssdk:
+    # As we need to pass build arguments, we cannot use 'image' field here
+    build:
+      context: .
+      dockerfile: ./jssdk.dockerfile
+    ports:
+      - "8085:80"
+    environment:
+      - SERVER_ROOT=/var/www/html
+      - JSSDK_DOMAIN=${SSPSERVER_JSSDK_DOMAIN}
+      - ADREQUEST_DYNAMIC_URL=
