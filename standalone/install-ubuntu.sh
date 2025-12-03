@@ -373,7 +373,7 @@ setup_env_file_variable () {
     local prompt_message="$4"
     local auto_confirm="$5"
     local return_value="${default_value}"
-    local no_return="${$6:-false}"
+    local no_return="$6"
 
     # Check if variable is already set in env file (non-empty value)
     if grep -q "^${var_name}=[^[:space:]]*[[:graph:]]" "${env_file}" 2>/dev/null; then
