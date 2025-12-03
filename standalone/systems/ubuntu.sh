@@ -381,11 +381,11 @@ setup_env_file_variable () {
         # Prompt user for value
         if [[ "$auto_confirm" == "true" ]]; then
             # Use default value in auto mode
-            user_input=${default_value}
+            user_input="${default_value}"
             log "info" "Using default value for '${var_name}': ${user_input}" "+"
         else
             read -p "${prompt_message} [${default_value}]: " user_input < /dev/tty
-            user_input=${user_input:-$default_value}
+            user_input="${user_input:-$default_value}"
             return_value="${user_input}"
         fi
 
