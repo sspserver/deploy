@@ -660,16 +660,6 @@ run_sspservice () {
 log "info" "Starting SSP Server installation for Ubuntu" "+"
 log "info" "Auto-confirmation mode: ${AUTO_YES}" "+"
 
-# 0. Update project environment file
-log "info" "Updating project environment file..." "+"
-if [ -f "${PROJECT_ENV_FILE}" ]; then
-    log "info" "Project environment file already exists, updating..." "+"
-    update_env_file_from "${PROJECT_ENV_FILE}" "${INSTALL_DIR}/.init.env"
-else
-    log "info" "Project environment file not found, creating new one..." "+"
-    cp "${INSTALL_DIR}/.init.env" "${PROJECT_ENV_FILE}"
-fi
-
 # 1. Install dependencies
 install_dependencies
 
@@ -696,11 +686,21 @@ fi
 # 4. Download and prepare service files
 download_service_files
 
-# 5. Prepare project environment
+# 5. Update project environment file
+log "info" "Updating project environment file..." "+"
+if [ -f "${PROJECT_ENV_FILE}" ]; then
+    log "info" "Project environment file already exists, updating..." "+"
+    update_env_file_from "${PROJECT_ENV_FILE}" "${INSTALL_DIR}/.init.env"
+else
+    log "info" "Project environment file not found, creating new one..." "+"
+    cp "${INSTALL_DIR}/.init.env" "${PROJECT_ENV_FILE}"
+fi
+
+# 6. Prepare project environment
 prepare_general_environment
 
-# 6. Prepare SSP Server service for running
+# 7. Prepare SSP Server service for running
 prepare_sspservice
 
-# 7. Run SSP Server service
+# 8. Run SSP Server service
 run_sspservice
