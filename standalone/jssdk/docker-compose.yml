@@ -5,7 +5,9 @@ services:
       context: .
       dockerfile: ./jssdk.dockerfile
     ports:
-      - "8085:80"
+      - "${SSP_JSSDK_PORT:-8085}:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - SERVER_ROOT=/var/www/html
       - JSSDK_DOMAIN=${SSPSERVER_JSSDK_DOMAIN}
