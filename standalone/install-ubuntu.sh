@@ -390,16 +390,7 @@ setup_env_file_variable () {
             return_value="${user_input}"
         fi
 
-        # GNU sed doesn't require empty string after -i for in-place editing
-        if grep -q "^${var_name}=" "${env_file}" 2>/dev/null; then
-            # Variable exists but is empty, update it
-            sed -i "s/^${var_name}=.*/${var_name}=\"${user_input}\"/g" "${env_file}"
-        else
-            # Variable not found, append it to the env file
-            echo "${var_name}=\"${user_input}\"" >> "${env_file}"
-        fi
-
-        log "info" "Set environment variable '${var_name}' to '${user_input}' in ${env_file}" "+"
+        setup_env_file_variable_base "${env_file}" "${var_name}" "${user_input}"
     fi
 
     # Return the value for further use
@@ -407,6 +398,23 @@ setup_env_file_variable () {
         return
     fi
     echo "${return_value}"
+}
+
+setup_env_file_variable_base () {
+    local env_file="$1"
+    local var_name="$2"
+    local value="$3"
+
+    # GNU sed doesn't require empty string after -i for in-place editing
+    if grep -q "^${var_name}=" "${env_file}" 2>/dev/null; then
+        # Variable exists but is empty, update it
+        sed -i "s/^${var_name}=.*/${var_name}=\"${value | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed 's/\\/\\\\/g' | sed 's/"/\\"/g'}\"/g" "${env_file}"
+    else
+        # Variable not found, append it to the env file
+        echo "${var_name}=\"${value | sed 's/\\/\\\\/g' | sed 's/"/\\"/g'}\"" >> "${env_file}"
+    fi
+
+    log "info" "Set environment variable '${var_name}' to '${value}' in ${env_file}" "+"
 }
 
 # Function: prepare_environment_file
@@ -566,17 +574,13 @@ prepare_general_environment () {
     # Put advertisement codes to environment file with escaping '\n', '\\', '\"'
     log "info" "Setting up advertisement codes..." "+"
 
-    banner_code=$(cat "${INSTALL_DIR}/app-api/basic.ad.tmpl" 2>/dev/null | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-    echo "Banner code: $banner_code"
-    setup_env_file_variable "${PROJECT_ENV_FILE}" \
-        "API_OPTION_AD_TEMPLATE_CODE" "${banner_code}" \
-        "" "true" "false"
+    banner_code=$(cat "${INSTALL_DIR}/app-api/basic.ad.tmpl" 2>/dev/null | sed ':a;N;$!ba;s/\n/\\n/g')
+    setup_env_file_variable_base "${PROJECT_ENV_FILE}" \
+        "API_OPTION_AD_TEMPLATE_CODE" "${banner_code}"
 
-    popunder_code=$(cat "${INSTALL_DIR}/app-api/popunder.ad.tmpl" 2>/dev/null | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-    echo "Popunder code: $popunder_code"
-    setup_env_file_variable "${PROJECT_ENV_FILE}" \
-        "API_OPTION_AD_DIRECT_TEMPLATE_CODE" "${popunder_code}" \
-        "" "true" "false"
+    popunder_code=$(cat "${INSTALL_DIR}/app-api/popunder.ad.tmpl" 2>/dev/null | sed ':a;N;$!ba;s/\n/\\n/g')
+    setup_env_file_variable_base "${PROJECT_ENV_FILE}" \
+        "API_OPTION_AD_DIRECT_TEMPLATE_CODE" "${popunder_code}"
 
     # Ensure proper file permissions for .env files
     if ! chmod 644 "${PROJECT_ENV_FILE}"; then
