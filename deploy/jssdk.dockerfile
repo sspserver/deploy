@@ -34,7 +34,6 @@ RUN cp -r /tmp/adview/src/native/dist/* /tmp/adview-dist/
 RUN cp -r /tmp/adview/src/popunder/dist/* /tmp/adview-dist/
 RUN echo "404 Not Found" > /tmp/adview-dist/404.html
 RUN echo "" > /tmp/adview-dist/index.html
-RUN ls -la /tmp/adview-dist
 
 FROM joseluisq/static-web-server:latest
 

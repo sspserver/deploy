@@ -20,6 +20,7 @@ services:
       OAUTH2_ACCESS_TOKEN_LIFESPAN: 24h
       OPTION_AD_DIRECT_TEMPLATE_CODE: ""
       OPTION_AD_DIRECT_TEMPLATE_URL: https://localhost:8080/direct/{{adunit-code}}
+      OPTION_AD_JSSDK_DOMAIN: localhost:8085
       OPTION_AD_TEMPLATE_CODE: ""
       OPTION_RTB_SERVER_DOMAIN: localhost:8080
       SERVER_PROFILE_LISTEN: :6060
@@ -170,9 +171,16 @@ services:
     build:
       context: ../standalone
       dockerfile: ./jssdk.dockerfile
+      args:
+        ADSERVER_AD_JSONP_REQUEST_URL: https://localhost:8080/b/dynamic/{<id>}?format=jsonp
+        ADVIEW_STYLES_PATH: https://localhost:8085
+        POPUNDER_DEFAULT_URL: https://localhost:8080/b/direct/{<id>}
+      no_cache: true
     environment:
       ADREQUEST_DYNAMIC_URL: ""
       JSSDK_DOMAIN: localhost:8085
+      JSSDK_DOMAIN_PROTOCOL: https
+      JSSDK_DOMAIN_WITH_PROTOCOL: https://localhost:8085
       SERVER_ROOT: /var/www/html
     extra_hosts:
       - host.docker.internal=host-gateway

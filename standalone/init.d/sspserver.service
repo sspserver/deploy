@@ -10,7 +10,7 @@ Restart=always
 RestartSec=5
 RemainAfterExit=yes
 EnvironmentFile=/opt/sspserver/.init.env
-ExecStart=docker compose -f /opt/sspserver/docker-compose.yml up proxy --detach
+ExecStart=docker compose -f /opt/sspserver/docker-compose.yml up proxy --detach --build jssdk
 ExecStop=docker compose -f /opt/sspserver/docker-compose.yml stop
 
 [Install]
