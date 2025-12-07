@@ -7,6 +7,7 @@ services:
       args:
         - ADVIEW_STYLES_PATH=${SSPSERVER_JSSDK_DOMAIN_PROTOCOL:-https}://${SSPSERVER_JSSDK_DOMAIN}
         - ADSERVER_AD_JSONP_REQUEST_URL=${SSPSERVER_AD_DOMAIN_PROTOCOL:-https}://${SSPSERVER_AD_DOMAIN}/b/dynamic/{<id>}?format=jsonp
+      no_cache: true
     ports:
       - "${SSP_JSSDK_PORT:-8085}:80"
     extra_hosts:
