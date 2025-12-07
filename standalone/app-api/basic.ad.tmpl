@@ -1,19 +1,26 @@
+<!-- AdView Native JS SDK -->
+<!-- Insert this code to the HEAD only once -->
+<script src="https://{JSSDK_DOMAIN}/ntl.js"></script>
+<script type="text/javascript">
+  document.addEventListener("DOMContentLoaded", function() {
+    ntl.amgConfigure(function (mn) {
+      mn.setMapper('my-promo-tag.mypromo', {
+        render: new AdViewStylizedRender(),
+      });
+    });
+  });
+</script>
+
+<!-- Insert this code where you want the ad to appear -->
 <my-promo-tag
   class="mypromo"
   style="display: block; width: 100%"
   data-ad-slot="{{adunit-code}}"
   data-ad-format="auto"
   data-full-width-responsive="true"
-></my-promo-tag>
-
-<!-- AdView Native JS SDK -->
-<!-- Insert this code to the HEAD only once -->
-<script src="https://{JSSDK_DOMAIN}/ntl.js"></script>
-<script type="text/javascript">
-  AdViewNative.amgConfigure(function (mn) {
-    mn.setMapper('my-promo-tag.mypromo', {
-      srcURL: 'https://{ADSERVER_DOMAIN}/b/dynamic/{<id>}?format=jsonp',
-      render: new AdViewStylizedRender(),
-    });
-  });
-</script>
+>
+  <!-- Optional: Custom ad markup template -->
+  <script type="html/template" data-type="default">
+    <!-- Insert your custom ad markup here -->
+  </script>
+</my-promo-tag>

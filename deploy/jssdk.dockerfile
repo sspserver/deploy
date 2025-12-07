@@ -14,9 +14,6 @@ ADD https://github.com/sspserver/deploy/raw/refs/heads/build/adview-packages.zip
 RUN mkdir -p /tmp/adview/src && \
     unzip /tmp/adview/adview-packages.zip -d /tmp/adview/src
 
-RUN echo "Contents of /tmp/adview/src:"
-RUN ls -la /tmp/adview/src/
-
 # Build packages/native project into /tmp/adview-dist/native
 RUN cd /tmp/adview/src/native && \
     npm install && \
