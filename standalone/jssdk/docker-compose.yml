@@ -4,6 +4,9 @@ services:
     build:
       context: .
       dockerfile: ./jssdk.dockerfile
+      args:
+        - ADVIEW_STYLES_PATH=${SSPSERVER_JSSDK_DOMAIN_PROTOCOL:-https}://${SSPSERVER_JSSDK_DOMAIN}
+        - ADSERVER_AD_JSONP_REQUEST_URL=${SSPSERVER_AD_DOMAIN_PROTOCOL:-https}://${SSPSERVER_AD_DOMAIN}/b/dynamic/{<id>}?format=jsonp
     ports:
       - "${SSP_JSSDK_PORT:-8085}:80"
     extra_hosts:
@@ -13,7 +16,5 @@ services:
       - JSSDK_DOMAIN=${SSPSERVER_JSSDK_DOMAIN}
       - JSSDK_DOMAIN_PROTOCOL=${SSPSERVER_JSSDK_DOMAIN_PROTOCOL:-https}
       - JSSDK_DOMAIN_WITH_PROTOCOL=${SSPSERVER_JSSDK_DOMAIN_PROTOCOL:-https}://${SSPSERVER_JSSDK_DOMAIN}
-      - ADVIEW_STYLES_PATH=${SSPSERVER_JSSDK_DOMAIN_PROTOCOL:-https}://${SSPSERVER_JSSDK_DOMAIN}
-      - ADSERVER_AD_JSONP_REQUEST_URL=${SSPSERVER_AD_DOMAIN_PROTOCOL:-https}://${SSPSERVER_AD_DOMAIN}/b/dynamic/{<id>}?format=jsonp
       - ADREQUEST_DYNAMIC_URL=
       - POPUNDER_DEFAULT_URL=${SSPSERVER_AD_DOMAIN_PROTOCOL:-https}://${SSPSERVER_AD_DOMAIN}/b/direct/{<id>}

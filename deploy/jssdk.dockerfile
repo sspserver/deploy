@@ -1,5 +1,11 @@
 FROM node:25 AS build
 
+ARG ADVIEW_STYLES_PATH
+ENV ADVIEW_STYLES_PATH=${ADVIEW_STYLES_PATH}
+
+ARG ADSERVER_AD_JSONP_REQUEST_URL
+ENV ADSERVER_AD_JSONP_REQUEST_URL=${ADSERVER_AD_JSONP_REQUEST_URL}
+
 # Download the AdView packages zip file prepared in the CI workflow
 # archive contains only the `packages/native` and `packages/popunder` directories
 # from the AdView source code repository
